@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+:root {
+  --background: #020408;
+  --foreground: #e8f4ff;
+  
+  /* Clean SaaS Color Palette */
+  --primary: #0066ff;
+  --primary-glow: rgba(0, 102, 255, 0.15);
+  
+  --success: #00cc66;
+  --warning: #ffb300;
+  --danger: #ff3344;
+  --info: #00aaff;
+  
+  --surface: #0a121e;
+  --surface-hover: #121d2d;
+  --border: rgba(255, 255, 255, 0.1);
+}
+
+@layer base {
+  body {
+    @apply bg-[var(--background)] text-[var(--foreground)] antialiased min-h-screen;
+  }
+  body::selection {
+    background-color: var(--primary);
+    color: #ffffff;
+  }
+}
+
+@layer components {
+  /* Clean glassmorphism cards */
+  .glass-card {
+    @apply bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-sm transition-all duration-200;
+  }
+  
+  .glass-card:hover {
+    @apply border-[rgba(255,255,255,0.15)] shadow-md;
+  }
+  
+  /* Lighter surface for prominent elements */
+  .glass-card-bright {
+    @apply bg-[#0c1626] border border-[rgba(255,255,255,0.15)] rounded-xl shadow-lg;
+  }
+}
+
+/* Custom scrollbar - Clean and minimal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Base Utility Classes used across the app */
+.pulse-dot {
+  animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .3;
+  }
+}
