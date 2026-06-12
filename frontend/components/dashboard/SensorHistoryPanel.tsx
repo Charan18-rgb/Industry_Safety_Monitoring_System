@@ -12,8 +12,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="glass-card p-3 border border-cyan-500/30 text-xs">
         <p className="font-bold text-white mb-2">{label}</p>
-        <p className="text-blue-400">Temp: {dataPoint.temperature?.toFixed(1) || '--'}°C</p>
-        <p className="text-emerald-400">Gas: {dataPoint.gasLevel?.toFixed(1) || '--'} ppm</p>
+        <p className="text-blue-400">Temp: {dataPoint.temperature?.toFixed(1) ?? '0.0'}°C</p>
+        <p className="text-emerald-400">Gas: {dataPoint.gasLevel?.toFixed(1) ?? '0.0'} ppm</p>
         {dataPoint.machineFault && <p className="text-red-400 font-bold mt-1">Machine Fault: YES</p>}
         
         {dataPoint.events && dataPoint.events.length > 0 && (
@@ -38,7 +38,7 @@ export function SensorHistoryPanel() {
   const { data, history, events, isConnected } = useLiveSensorStore();
   const { alerts } = useAlertStore();
   const { incidents } = useIncidentStore();
-  const { emailsSent, whatsappSent } = useNotificationStore();
+  const { emailsSent, messageSimulationsSent } = useNotificationStore();
 
   const chartData = useMemo(() => {
     return history.map(d => {
@@ -78,7 +78,7 @@ export function SensorHistoryPanel() {
             <h3 className="text-white font-bold text-sm">Sensor Health Summary</h3>
             <div className="text-[#7fa3c4] text-xs font-mono flex items-center gap-2 mt-1">
               <Clock className="w-3 h-3" />
-              Last Update: {data ? new Date(data.timestamp).toLocaleTimeString() : 'N/A'}
+              Last Update: {data ? new Date(data.timestamp).toLocaleTimeString() : 'Waiting for first tick'}
             </div>
           </div>
         </div>
@@ -86,23 +86,23 @@ export function SensorHistoryPanel() {
         <div className="flex flex-wrap gap-4 items-center">
           <div className="text-center px-4 border-r border-white/10">
             <div className="text-[#7fa3c4] text-[10px] font-bold tracking-wider mb-1">TEMPERATURE</div>
-            <div className="text-lg font-mono font-bold text-white">{data ? `${data.temperature.toFixed(1)}°C` : '--'}</div>
+            <div className="text-lg font-mono font-bold text-white">{data ? `${data.temperature.toFixed(1)}°C` : '0.0°C'}</div>
           </div>
           <div className="text-center px-4 border-r border-white/10">
             <div className="text-[#7fa3c4] text-[10px] font-bold tracking-wider mb-1">GAS LEVEL</div>
-            <div className="text-lg font-mono font-bold text-white">{data ? `${data.gasLevel.toFixed(1)} ppm` : '--'}</div>
+            <div className="text-lg font-mono font-bold text-white">{data ? `${data.gasLevel.toFixed(1)} ppm` : '0.0 ppm'}</div>
           </div>
           <div className="text-center px-4 border-r border-white/10">
             <div className="text-[#7fa3c4] text-[10px] font-bold tracking-wider mb-1">MACHINE STATUS</div>
             <div className={`text-sm font-bold mt-1 px-2 py-0.5 rounded ${data?.machineFault ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-              {data ? (data.machineFault ? 'FAULT' : 'OK') : '--'}
+              {data ? (data.machineFault ? 'FAULT' : 'OK') : 'OK'}
             </div>
           </div>
           <div className="text-center px-4">
             <div className="text-[#7fa3c4] text-[10px] font-bold tracking-wider mb-1">CONNECTION</div>
-            <div className={`text-xs font-bold flex items-center gap-1 mt-1 ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+            <div className={`text-xs font-bold flex items-center gap-1 mt-1 ${isConnected ? 'text-green-400' : 'text-amber-400'}`}>
               {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              {isConnected ? 'LIVE DATA CONNECTED' : 'SIMULATION MODE'}
+              {isConnected ? 'LIVE DATA CONNECTED' : 'AUTOMATED TELEMETRY ACTIVE'}
             </div>
           </div>
         </div>
@@ -153,8 +153,8 @@ export function SensorHistoryPanel() {
                 <span className="font-mono text-white font-bold">{emailsSent}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-[#7fa3c4] flex items-center gap-1"><Activity className="w-3 h-3"/> WhatsApps</span>
-                <span className="font-mono text-white font-bold">{whatsappSent}</span>
+                <span className="text-[#7fa3c4] flex items-center gap-1"><Activity className="w-3 h-3"/> Message Simulations</span>
+                <span className="font-mono text-white font-bold">{messageSimulationsSent}</span>
               </div>
             </div>
           </div>

@@ -250,10 +250,10 @@ export const useSimulationStore = Object.assign(
 interface NotificationView {
   logs: NotificationLog[];
   emailsSent: number;
-  whatsappSent: number;
+  messageSimulationsSent: number;
   totalNotifications: number;
   addLog: (log: NotificationLog) => void;
-  updateLogStatus: (id: string, updates: { emailStatus?: DeliveryStatus; whatsappStatus?: DeliveryStatus }) => void;
+  updateLogStatus: (id: string, updates: { status?: DeliveryStatus }) => void;
   clearLogs: () => void;
 }
 
@@ -261,7 +261,7 @@ const notificationActions = {
   addLog: (log: NotificationLog) => useSimulationDomainStore.setState((state) => ({
     notifications: [log, ...state.notifications].slice(0, 200),
   })),
-  updateLogStatus: (id: string, updates: { emailStatus?: DeliveryStatus; whatsappStatus?: DeliveryStatus }) =>
+  updateLogStatus: (id: string, updates: { status?: DeliveryStatus }) =>
     useSimulationDomainStore.setState((state) => ({
       notifications: state.notifications.map((log) => log.id === id ? { ...log, ...updates } : log),
     })),
@@ -271,8 +271,8 @@ const notificationActions = {
 function notificationView(logs: NotificationLog[]): NotificationView {
   return {
     logs,
-    emailsSent: logs.filter((log) => log.channel === 'Email Simulation' || log.emailStatus === 'success').length,
-    whatsappSent: logs.filter((log) => log.channel === 'Message Simulation' || log.whatsappStatus === 'success').length,
+    emailsSent: logs.filter((log) => log.channel === 'Email Simulation').length,
+    messageSimulationsSent: logs.filter((log) => log.channel === 'Message Simulation').length,
     totalNotifications: logs.length,
     ...notificationActions,
   };
@@ -320,7 +320,7 @@ export interface LiveSensorData {
 
 export interface SensorEvent {
   id: string;
-  type: 'Alert' | 'Incident' | 'Email' | 'WhatsApp';
+  type: 'Alert' | 'Incident' | 'Email Simulation' | 'Message Simulation';
   timestamp: string;
   severity: 'critical' | 'warning' | 'info';
   message: string;
@@ -389,7 +389,7 @@ function liveView() {
   const state = useSimulationDomainStore.getState();
   const events: SensorEvent[] = state.activityHistory.map((entry) => ({
     id: entry.id,
-    type: entry.category === 'alert' ? 'Alert' : entry.category === 'incident' ? 'Incident' : 'Email',
+    type: entry.category === 'alert' ? 'Alert' : entry.category === 'incident' ? 'Incident' : 'Email Simulation',
     timestamp: entry.timestamp,
     severity: entry.message.toLowerCase().includes('critical') ? 'critical' : 'info',
     message: entry.message,

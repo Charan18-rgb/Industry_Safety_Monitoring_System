@@ -219,9 +219,7 @@ export type ActivityCategory =
   | 'incident'
   | 'notification'
   | 'report'
-  | 'camera'
-  | 'email'
-  | 'whatsapp';
+  | 'camera';
 
 export interface ActivityLog {
   id: string;
@@ -271,9 +269,5 @@ export interface NotificationLog {
   status?: DeliveryStatus;
   recipientRole?: OperationalRole;
   message?: string;
-  /** @deprecated Legacy compatibility until notification pages finish migrating. */
-  emailStatus?: DeliveryStatus;
-  /** @deprecated Legacy compatibility until notification pages finish migrating. */
-  whatsappStatus?: DeliveryStatus;
   timestamp: string;
 }
