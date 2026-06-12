@@ -1,133 +1,110 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Target, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { useAlertStore, useIncidentStore, useTelemetryStore } from '@/store';
-import { useMemo } from 'react';
-import { SensorHistoryPanel } from '@/components/dashboard/SensorHistoryPanel';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
+import type { SensorType } from '@/types';
 
-const COLORS = ['#00d4ff', '#ffb800', '#ff3355', '#7c3aed'];
+const TOOLTIP_STYLE = {
+  background: '#071421',
+  border: '1px solid rgba(0,212,255,0.2)',
+  borderRadius: 6,
+  fontSize: 11,
+};
 
-export default function AnalyticsPage() {
-  const { alerts } = useAlertStore();
-  const { incidents } = useIncidentStore();
-  const { riskScore } = useTelemetryStore();
+function TrendChart({ type, title, color }: { type: SensorType; title: string; color: string }) {
+  const sensor = useSimulationDomainStore((state) => state.telemetry.find((item) => item.type === type));
+  const history = useSimulationDomainStore((state) => state.telemetryHistory.find((item) => item.sensorId === sensor?.sensorId)?.readings ?? []);
+  const data = history.slice(-60).map((reading) => ({
+    time: new Date(reading.timestamp).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' }),
+    value: reading.value,
+  }));
 
-  const alertDistributionData = useMemo(() => {
-    let critical = 0, warning = 0, info = 0;
-    alerts.forEach(a => {
-      if (a.severity === 'critical') critical++;
-      else if (a.severity === 'warning') warning++;
-      else info++;
-    });
-    // Fallback to show something if zero
-    if (critical === 0 && warning === 0 && info === 0) {
-      return [{ name: 'No Alerts', value: 1 }];
-    }
-    return [
-      { name: 'Critical', value: critical },
-      { name: 'Warning', value: warning },
-      { name: 'Info', value: info },
-    ].filter(d => d.value > 0);
-  }, [alerts]);
+  return (
+    <section className="glass-card p-5 min-h-72">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-white text-sm font-semibold">{title}</h2>
+        <span className="font-mono text-sm" style={{ color }}>{sensor?.value ?? 0} {sensor?.unit ?? ''}</span>
+      </div>
+      <div className="h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid stroke="rgba(127,163,196,0.08)" vertical={false} />
+            <XAxis dataKey="time" tick={{ fill: '#587996', fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={30} />
+            <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{ fill: '#587996', fontSize: 9 }} axisLine={false} tickLine={false} width={32} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Line dataKey="value" type="monotone" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
 
-  const incidentStatsData = useMemo(() => {
-    let open = 0, investigating = 0, resolved = 0;
-    incidents.forEach(i => {
-      if (i.status === 'open') open++;
-      else if (i.status === 'investigating') investigating++;
-      else if (i.status === 'resolved' || i.status === 'closed') resolved++;
-    });
-    if (open === 0 && investigating === 0 && resolved === 0) {
-      return [{ name: 'No Incidents', value: 0 }];
-    }
-    return [
-      { name: 'Open', value: open },
-      { name: 'Investigating', value: investigating },
-      { name: 'Resolved', value: resolved },
-    ];
-  }, [incidents]);
+export default function SafetyAnalyticsPage() {
+  const alerts = useSimulationDomainStore((state) => state.alerts);
+  const incidents = useSimulationDomainStore((state) => state.incidents);
+
+  const alertsBySeverity = ['info', 'warning', 'critical', 'emergency'].map((severity) => ({
+    name: severity[0].toUpperCase() + severity.slice(1),
+    count: alerts.filter((alert) => alert.severity === severity).length,
+  }));
+  const incidentsByStatus = ['open', 'investigating', 'resolved', 'closed'].map((status) => ({
+    name: status[0].toUpperCase() + status.slice(1),
+    count: incidents.filter((incident) => incident.status === status).length,
+  }));
 
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white font-display tracking-wide uppercase">System Analytics</h1>
-        <p className="text-[#7fa3c4] text-sm mt-0.5 tracking-widest">Simplified risk and telemetry insights</p>
+        <h1 className="text-2xl font-bold text-white font-display tracking-wide">Safety Analytics</h1>
+        <p className="text-[#7fa3c4] text-sm mt-1">Operational trends and lifecycle distribution</p>
       </div>
 
-      {/* Sensor History Panel (Tinkercad Integration) */}
-      <SensorHistoryPanel />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <TrendChart type="temperature" title="Temperature Trend" color="#ff8a65" />
+        <TrendChart type="gas" title="Gas Trend" color="#00d4ff" />
+        <TrendChart type="vibration" title="Vibration Trend" color="#ffb800" />
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Risk Overview */}
-        <div className="glass-card p-5">
-          <h3 className="text-white font-bold mb-4 font-mono tracking-widest text-sm flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            Risk Overview
-          </h3>
-          <div className="flex flex-col items-center justify-center h-64 space-y-4">
-            <div className="relative w-36 h-36">
-              <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
-                <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
-                <motion.circle
-                  cx="70" cy="70" r="58" fill="none"
-                  stroke={riskScore?.overall && riskScore.overall > 60 ? '#ff3355' : '#00d4ff'}
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 58}`}
-                  initial={{ strokeDashoffset: 2 * Math.PI * 58 }}
-                  animate={{ strokeDashoffset: 2 * Math.PI * 58 * (1 - (riskScore?.overall || 0) / 100) }}
-                  transition={{ duration: 1 }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-black font-mono text-white">{riskScore?.overall || 0}</span>
-                <span className="text-[#7fa3c4] text-[10px] tracking-widest">RISK SCORE</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Removed mock Temperature Trend, now handled by SensorHistoryPanel */}
-        {/* Alert Distribution */}
-        <div className="glass-card p-5">
-          <h3 className="text-white font-bold mb-4 font-mono tracking-widest text-sm flex items-center gap-2">
-            <Target className="w-4 h-4 text-cyan-400" />
-            Alert Distribution
-          </h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={alertDistributionData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {alertDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: 'rgba(2, 12, 24, 0.9)', borderColor: 'rgba(0, 212, 255, 0.2)', color: '#fff' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Incident Statistics */}
-        <div className="glass-card p-5">
-          <h3 className="text-white font-bold mb-4 font-mono tracking-widest text-sm flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-400" />
-            Incident Statistics
-          </h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={incidentStatsData}>
-                <XAxis dataKey="name" stroke="#3a5a7a" tick={{ fill: '#7fa3c4', fontSize: 10 }} />
-                <YAxis stroke="#3a5a7a" tick={{ fill: '#7fa3c4', fontSize: 10 }} />
-                <Tooltip contentStyle={{ backgroundColor: 'rgba(2, 12, 24, 0.9)', borderColor: 'rgba(255, 51, 85, 0.2)', color: '#fff' }} />
-                <Bar dataKey="value" fill="#ff3355" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <DistributionChart title="Alerts by Severity" data={alertsBySeverity} color="#ffb800" />
+        <DistributionChart title="Incidents by Status" data={incidentsByStatus} color="#00d4ff" />
       </div>
     </div>
+  );
+}
+
+function DistributionChart({ title, data, color }: { title: string; data: Array<{ name: string; count: number }>; color: string }) {
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  return (
+    <section className="glass-card p-5 min-h-72">
+      <div className="flex items-center justify-between">
+        <h2 className="text-white text-sm font-semibold">{title}</h2>
+        <span className="text-[#7fa3c4] text-xs font-mono">Total {total}</span>
+      </div>
+      <div className="h-52 mt-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid stroke="rgba(127,163,196,0.08)" vertical={false} />
+            <XAxis dataKey="name" tick={{ fill: '#587996', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis allowDecimals={false} domain={[0, Math.max(1, ...data.map((item) => item.count))]} tick={{ fill: '#587996', fontSize: 10 }} axisLine={false} tickLine={false} width={28} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Legend />
+            <Bar name="Records" dataKey="count" fill={color} radius={[4, 4, 0, 0]} minPointSize={2} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
   );
 }
