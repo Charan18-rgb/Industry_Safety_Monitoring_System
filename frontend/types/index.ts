@@ -258,7 +258,7 @@ export interface SystemConfig {
 // ─── Notification Types ─────────────────────────────────────────────────────
 
 export type DeliveryStatus = 'delivered' | 'pending' | 'failed' | 'success' | 'disabled';
-export type NotificationChannel = 'Email Simulation' | 'Message Simulation' | 'In-App';
+export type NotificationChannel = 'Email Simulation' | 'Message Simulation' | 'In-App' | 'Email' | 'WhatsApp';
 
 export interface NotificationLog {
   id: string;

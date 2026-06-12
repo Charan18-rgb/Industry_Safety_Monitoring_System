@@ -15,8 +15,8 @@ export default function NotificationsPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Summary label="Email Simulation" value={notifications.filter((item) => item.channel === 'Email Simulation').length} icon={Mail} />
-        <Summary label="Message Simulation" value={notifications.filter((item) => item.channel === 'Message Simulation').length} icon={MessageSquare} />
+        <Summary label="Email" value={notifications.filter((item) => item.channel === 'Email').length} icon={Mail} />
+        <Summary label="WhatsApp" value={notifications.filter((item) => item.channel === 'WhatsApp').length} icon={MessageSquare} />
         <Summary label="In-App" value={notifications.filter((item) => item.channel === 'In-App').length} icon={Monitor} />
       </div>
 

@@ -303,7 +303,7 @@ function notification(
   timestamp: string,
 ): NotificationLog {
   return {
-    id: `NOT-${Date.now()}-${channel.startsWith('Email') ? 'E' : 'M'}`,
+    id: `NOT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     alertId,
     alertType: definition.title,
     severity: definition.severity,
@@ -370,7 +370,7 @@ export const useSimulationDomainStore = create<SimulationDomainState>()((set, ge
     };
   }),
 
-  startScenario: (scenario) => {
+  startScenario: async (scenario) => {
     const state = get();
     if (state.activeScenario === scenario) return;
     const definition = SCENARIOS[scenario];
@@ -406,11 +406,14 @@ export const useSimulationDomainStore = create<SimulationDomainState>()((set, ge
       originatingAlertId: alertId,
       auditHistory: [auditEntry('open', definition.actor, 'Incident created from originating alert.', timestamp)],
     } : null;
-    const notifications = [
-      notification(alertId, definition, 'Email Simulation', timestamp),
-      notification(alertId, definition, 'Message Simulation', timestamp),
+    
+    // Create initial simulated notifications
+    let notifications = [
+      notification(alertId, definition, 'Email', timestamp),
+      notification(alertId, definition, 'WhatsApp', timestamp),
       notification(alertId, definition, 'In-App', timestamp),
     ];
+
     const capture = scenario === 'ppe_violation' ? {
       id: `CAP-${Date.now()}`,
       timestamp,
@@ -432,12 +435,55 @@ export const useSimulationDomainStore = create<SimulationDomainState>()((set, ge
         activity(`${definition.title} scenario started.`, 'simulation', timestamp),
         activity(`Alert ${alertId} created.`, 'alert', timestamp),
         ...(incident ? [activity(`Incident ${incident.id} created.`, 'incident', timestamp)] : []),
-        activity('Notification simulation records created.', 'notification', timestamp),
+        activity('Notification simulation records created. Attempting external dispatch...', 'notification', timestamp),
         ...state.activityHistory,
       ].slice(0, 200),
       systemHealth: 72,
     });
     get().tick();
+
+    // Async dispatch for real notifications
+    try {
+      const waRes = await fetch('/api/send-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: `${definition.title}: ${definition.message}` }),
+      });
+      const waData = await waRes.json();
+      
+      const emailRes = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: definition.title, message: definition.message }),
+      });
+      const emailData = await emailRes.json();
+
+      // Update notification statuses based on actual dispatch
+      set((currentState) => {
+        const updatedNotifications = currentState.notifications.map((notif) => {
+          if (notif.alertId === alertId) {
+            if (notif.channel === 'WhatsApp') {
+              return { ...notif, status: waRes.ok ? 'delivered' : ('failed' as any), message: waRes.ok ? notif.message : `Failed: ${waData.error}` };
+            }
+            if (notif.channel === 'Email') {
+              return { ...notif, status: emailRes.ok ? 'delivered' : ('failed' as any), message: emailRes.ok ? notif.message : `Failed: ${emailData.error}` };
+            }
+          }
+          return notif;
+        });
+
+        return {
+          notifications: updatedNotifications,
+          activityHistory: [
+            activity(`External notifications dispatched (WA: ${waRes.ok ? 'OK' : 'FAIL'}, Email: ${emailRes.ok ? 'OK' : 'FAIL'}).`, 'notification', new Date().toISOString()),
+            ...currentState.activityHistory
+          ].slice(0, 200)
+        };
+      });
+
+    } catch (error) {
+      console.error("External notification dispatch failed", error);
+    }
   },
 
   resetSimulation: () => {
