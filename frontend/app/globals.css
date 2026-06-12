@@ -18,6 +18,16 @@
   --border: rgba(255, 255, 255, 0.1);
 }
 
+@layer components {
+  .field {
+    @apply w-full rounded-lg bg-[#071421] border border-[rgba(0,212,255,0.15)] text-white text-sm px-3 py-2 outline-none focus:border-cyan-400/40;
+  }
+
+  .action-button {
+    @apply px-3 py-2 rounded-lg border bg-transparent text-xs font-semibold transition-colors hover:bg-white/5;
+  }
+}
+
 @layer base {
   body {
     @apply bg-[var(--background)] text-[var(--foreground)] antialiased min-h-screen;

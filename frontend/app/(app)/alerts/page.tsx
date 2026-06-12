@@ -1,237 +1,157 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Zap, AlertTriangle, Info, Volume2 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { mockAlerts } from '@/lib/mockData';
-import { useAlertStore } from '@/store';
-import { getSeverityColor, formatRelativeTime, cn } from '@/lib/utils';
-import type { Alert, AlertSeverity } from '@/types';
+import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
+import type { Alert, AlertStatus, OperationalRole } from '@/types';
+import { formatRelativeTime, getSeverityColor } from '@/lib/utils';
 
-const SEV_ICONS: Record<AlertSeverity, LucideIcon> = {
-  emergency: Zap,
-  critical: AlertTriangle,
-  warning: AlertTriangle,
-  info: Info,
-};
+const ROLES: OperationalRole[] = [
+  'Safety Officer',
+  'Shift Supervisor',
+  'Maintenance Engineer',
+  'Control Room Operator',
+];
 
-function AlertCard({ alert, onAck, onResolve }: { alert: Alert; onAck: () => void; onResolve: () => void }) {
-  const color = getSeverityColor(alert.severity);
-  const Icon = SEV_ICONS[alert.severity];
-  const isEmergency = alert.severity === 'emergency';
+const STATUS_ORDER: AlertStatus[] = ['active', 'acknowledged', 'escalated', 'resolved'];
 
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className="glass-card overflow-hidden"
-      style={{ borderColor: alert.status === 'active' ? `${color}30` : 'rgba(0,212,255,0.1)' }}
-    >
-      <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${color}${alert.status === 'active' ? '60' : '20'}, transparent)` }} />
+export default function AlertManagementPage() {
+  const alerts = useSimulationDomainStore((state) => state.alerts);
+  const transitionAlert = useSimulationDomainStore((state) => state.transitionAlert);
+  const [statusFilter, setStatusFilter] = useState<AlertStatus | 'all'>('all');
+  const [actorRole, setActorRole] = useState<OperationalRole>('Safety Officer');
+  const [notes, setNotes] = useState('Reviewed in the simulation environment.');
 
-      <div className="p-4 flex items-start gap-4">
-        <motion.div
-          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: `${color}15`, border: `1px solid ${color}30` }}
-          animate={isEmergency && alert.status === 'active' ? { scale: [1, 1.1, 1] } : {}}
-          transition={{ duration: 0.8, repeat: Infinity }}
-        >
-          <Icon className="w-4 h-4" style={{ color }} />
-        </motion.div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase" style={{ color, background: `${color}15`, border: `1px solid ${color}30` }}>
-                  {alert.severity}
-                </span>
-                {alert.status === 'acknowledged' && (
-                  <span className="text-[9px] font-mono text-blue-400 border border-blue-400/30 px-1.5 py-0.5 rounded">ACK</span>
-                )}
-                {alert.status === 'resolved' && (
-                  <span className="text-[9px] font-mono text-green-400 border border-green-400/30 px-1.5 py-0.5 rounded">RESOLVED</span>
-                )}
-              </div>
-              <div className="text-white text-sm font-medium">{alert.title}</div>
-              <div className="text-[#7fa3c4] text-xs mt-0.5">{alert.message}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 mt-2">
-            <span className="text-[#3a5a7a] text-[10px] font-mono">{alert.zone}</span>
-            <span className="text-[#3a5a7a] text-[10px] font-mono">{alert.source}</span>
-            <span className="text-[#3a5a7a] text-[10px] font-mono ml-auto">{formatRelativeTime(alert.timestamp)}</span>
-          </div>
-
-          {alert.acknowledgedBy && (
-            <div className="mt-1.5 text-[10px] text-blue-400 font-mono">
-              Acknowledged by {alert.acknowledgedBy}
-            </div>
-          )}
-        </div>
-
-        {alert.status === 'active' && (
-          <div className="flex flex-col gap-1.5 flex-shrink-0">
-            <button
-              onClick={onAck}
-              className="px-2.5 py-1.5 rounded text-[10px] font-semibold text-blue-400 border border-blue-400/30 hover:bg-blue-400/10 transition-all whitespace-nowrap"
-            >
-              Acknowledge
-            </button>
-            <button
-              onClick={onResolve}
-              className="px-2.5 py-1.5 rounded text-[10px] font-semibold text-green-400 border border-green-400/30 hover:bg-green-400/10 transition-all"
-            >
-              Resolve
-            </button>
-          </div>
-        )}
-      </div>
-    </motion.div>
+  const filtered = useMemo(
+    () => alerts.filter((alert) => statusFilter === 'all' || alert.status === statusFilter),
+    [alerts, statusFilter],
   );
-}
 
-// Emergency overlay
-function EmergencyOverlay({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center"
-      style={{ background: 'rgba(255,0,0,0.1)', backdropFilter: 'blur(4px)' }}
-    >
-      <motion.div
-        initial={{ scale: 0.8 }}
-        animate={{ scale: 1 }}
-        className="relative max-w-md w-full mx-4 rounded-2xl overflow-hidden"
-        style={{ background: '#0a0005', border: '2px solid #ff3355', boxShadow: '0 0 60px rgba(255,51,85,0.4)' }}
-      >
-        <motion.div
-          className="absolute inset-0"
-          animate={{ opacity: [0.05, 0.15, 0.05] }}
-          transition={{ duration: 1, repeat: Infinity }}
-          style={{ background: 'rgba(255,51,85,0.1)' }}
-        />
-        <div className="relative p-8 text-center">
-          <motion.div
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 0.8, repeat: Infinity }}
-            className="w-16 h-16 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center mx-auto mb-4"
+    <div className="p-6 space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-white font-display tracking-wide">Alert Management</h1>
+        <p className="text-[#7fa3c4] text-sm mt-1">Acknowledge, escalate, and resolve simulated safety alerts</p>
+      </div>
+
+      <section className="glass-card p-4 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-3">
+        <label>
+          <span className="block text-[#587996] text-[10px] uppercase mb-1.5">Actor Role</span>
+          <select
+            value={actorRole}
+            onChange={(event) => setActorRole(event.target.value as OperationalRole)}
+            className="w-full rounded-lg bg-[#071421] border border-[rgba(0,212,255,0.15)] text-white text-sm px-3 py-2 outline-none"
           >
-            <Zap className="w-8 h-8 text-red-400" />
-          </motion.div>
-          <div className="text-red-400 font-mono text-xs tracking-widest mb-2">EMERGENCY ALERT</div>
-          <h2 className="text-white text-xl font-bold mb-2">{alert.title}</h2>
-          <p className="text-[#7fa3c4] text-sm mb-4">{alert.message}</p>
-          <div className="text-[#7fa3c4] text-xs font-mono mb-6">Zone: {alert.zone} · {formatRelativeTime(alert.timestamp)}</div>
-          <div className="flex gap-3">
-            <button
-              onClick={onDismiss}
-              className="flex-1 py-3 rounded-lg text-sm font-semibold text-red-400 border border-red-400/50 hover:bg-red-400/10 transition-all"
-            >
-              Dismiss
-            </button>
-            <button className="flex-1 py-3 rounded-lg bg-red-500 text-white text-sm font-bold hover:bg-red-400 transition-all">
-              Initiate Protocol
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
+            {ROLES.map((role) => <option key={role}>{role}</option>)}
+          </select>
+        </label>
+        <label>
+          <span className="block text-[#587996] text-[10px] uppercase mb-1.5">Transition Notes</span>
+          <input
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            className="w-full rounded-lg bg-[#071421] border border-[rgba(0,212,255,0.15)] text-white text-sm px-3 py-2 outline-none focus:border-cyan-400/40"
+          />
+        </label>
+      </section>
 
-export default function AlertsPage() {
-  const { alerts, acknowledgeAlert, resolveAlert, hasEmergency, emergencyAlert, dismissEmergency } = useAlertStore();
-  const [filter, setFilter] = useState<AlertSeverity | 'all'>('all');
-  const [showEmergency, setShowEmergency] = useState(true);
-
-  const displayAlerts = alerts.length > 0 ? alerts : mockAlerts;
-
-  const filtered = displayAlerts.filter((a) => {
-    if (filter !== 'all' && a.severity !== filter) return false;
-    return true;
-  });
-
-  const counts = {
-    all: displayAlerts.length,
-    emergency: displayAlerts.filter((a) => a.severity === 'emergency').length,
-    critical: displayAlerts.filter((a) => a.severity === 'critical').length,
-    warning: displayAlerts.filter((a) => a.severity === 'warning').length,
-    info: displayAlerts.filter((a) => a.severity === 'info').length,
-  };
-
-  const user = { name: 'Current User' };
-
-  return (
-    <div className="p-6 space-y-6">
-      {/* Emergency overlay */}
-      <AnimatePresence>
-        {hasEmergency && emergencyAlert && showEmergency && (
-          <EmergencyOverlay alert={emergencyAlert} onDismiss={() => { dismissEmergency(); setShowEmergency(false); }} />
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white font-display tracking-wide">Alert Orchestration</h1>
-          <p className="text-[#7fa3c4] text-sm mt-0.5">Monitor, acknowledge, and escalate safety alerts across all systems</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[rgba(0,212,255,0.15)] text-[#7fa3c4] hover:text-cyan-400 text-xs transition-all">
-            <Volume2 className="w-4 h-4" />
-            Siren Test
-          </button>
-        </div>
-      </div>
-
-      {/* Severity tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {(['all', 'emergency', 'critical', 'warning', 'info'] as const).map((sev) => {
-          const color = sev === 'all' ? '#7fa3c4' : getSeverityColor(sev);
-          const count = counts[sev];
+      <div className="flex flex-wrap gap-2">
+        {(['all', ...STATUS_ORDER] as const).map((status) => {
+          const count = status === 'all' ? alerts.length : alerts.filter((alert) => alert.status === status).length;
           return (
             <button
-              key={sev}
-              onClick={() => setFilter(sev)}
-              className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize', filter === sev ? 'text-white' : 'text-[#7fa3c4] hover:text-white')}
-              style={filter === sev ? { background: `${color}20`, border: `1px solid ${color}50`, color } : { border: '1px solid rgba(0,212,255,0.1)' }}
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-3 py-2 rounded-lg border text-xs font-mono uppercase transition-colors ${
+                statusFilter === status
+                  ? 'border-cyan-400/40 bg-cyan-400/10 text-cyan-400'
+                  : 'border-[rgba(0,212,255,0.12)] text-[#7fa3c4] hover:text-white'
+              }`}
             >
-              {sev}
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono" style={{ background: `${color}20`, color }}>
-                {count}
-              </span>
+              {status} {count}
             </button>
           );
         })}
       </div>
 
-      {/* Alert list */}
       <div className="space-y-3">
         <AnimatePresence mode="popLayout">
           {filtered.map((alert) => (
             <AlertCard
               key={alert.id}
               alert={alert}
-              onAck={() => acknowledgeAlert(alert.id, user.name)}
-              onResolve={() => resolveAlert(alert.id)}
+              onTransition={(status) => transitionAlert(alert.id, status, actorRole, notes)}
             />
           ))}
         </AnimatePresence>
-
         {filtered.length === 0 && (
-          <div className="glass-card p-12 text-center">
-            <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-3" />
-            <p className="text-[#7fa3c4]">No alerts matching the selected filter</p>
+          <div className="glass-card py-16 text-center">
+            <CheckCircle2 className="w-9 h-9 text-green-400 mx-auto mb-3" />
+            <p className="text-white text-sm">No alerts in this state</p>
+            <p className="text-[#587996] text-xs mt-1">Run a scenario from the top bar to create a controlled alert.</p>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function AlertCard({ alert, onTransition }: { alert: Alert; onTransition: (status: AlertStatus) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const color = getSeverityColor(alert.severity);
+  return (
+    <motion.article layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="glass-card p-4">
+      <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ color, background: `${color}14`, border: `1px solid ${color}35` }}>
+          {alert.status === 'resolved' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded border" style={{ color, borderColor: `${color}40`, background: `${color}12` }}>{alert.severity}</span>
+            <span className="text-[10px] uppercase font-mono text-cyan-400 border border-cyan-400/25 px-2 py-0.5 rounded">{alert.status}</span>
+            <span className="text-[#3a5a7a] text-[10px] font-mono">{alert.id}</span>
+          </div>
+          <h2 className="text-white text-sm font-semibold mt-2">{alert.title}</h2>
+          <p className="text-[#7fa3c4] text-xs mt-1">{alert.message}</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[#587996] text-[10px] font-mono mt-3">
+            <span>{alert.zone}</span>
+            <span>{alert.source}</span>
+            <span>{formatRelativeTime(alert.timestamp)}</span>
+            {alert.incidentId && <span>Incident {alert.incidentId}</span>}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          {alert.status === 'active' && (
+            <button onClick={() => onTransition('acknowledged')} className="action-button text-blue-400 border-blue-400/30">Acknowledge</button>
+          )}
+          {(alert.status === 'active' || alert.status === 'acknowledged') && (
+            <button onClick={() => onTransition('escalated')} className="action-button text-amber-400 border-amber-400/30">Escalate</button>
+          )}
+          {alert.status !== 'resolved' && (
+            <button onClick={() => onTransition('resolved')} className="action-button text-green-400 border-green-400/30">Resolve</button>
+          )}
+          <button onClick={() => setExpanded((value) => !value)} className="p-2 rounded-lg border border-[rgba(0,212,255,0.15)] text-[#7fa3c4]" title="Toggle audit history">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="mt-4 pt-4 border-t border-[rgba(0,212,255,0.08)]">
+          <div className="flex items-center gap-2 text-[#7fa3c4] text-xs uppercase tracking-wider mb-3">
+            <ShieldAlert className="w-3.5 h-3.5" /> Audit History
+          </div>
+          <div className="space-y-2">
+            {(alert.auditHistory ?? []).map((entry) => (
+              <div key={entry.id} className="grid grid-cols-1 md:grid-cols-[130px_180px_1fr] gap-2 text-xs">
+                <span className="text-cyan-400 uppercase font-mono">{entry.status}</span>
+                <span className="text-[#7fa3c4]">{entry.actorRole}</span>
+                <span className="text-[#587996]">{entry.notes} · {new Date(entry.timestamp).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.article>
   );
 }
