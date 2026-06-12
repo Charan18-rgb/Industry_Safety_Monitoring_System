@@ -1,11 +1,22 @@
-// AEGIS-AI Global State Store (Zustand)
+'use client';
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, Alert, Incident, SensorReading, RiskScore } from '@/types';
-import { mockSensorReadingsNominal, mockRiskScoreNominal } from '@/lib/mockData';
-import { sendGasLeakAlert, sendHighTempAlert, sendMachineFaultAlert } from '@/lib/email';
-
-// ─── Auth Store ──────────────────────────────────────────────────────────────
+import type {
+  ActivityLog,
+  Alert,
+  DeliveryStatus,
+  Incident,
+  NotificationLog,
+  Report,
+  RiskScore,
+  SensorReading,
+  User,
+} from '@/types';
+import {
+  useSimulationDomainStore,
+  type SimulationScenario,
+} from '@/store/simulationDomain';
 
 interface AuthState {
   user: User | null;
@@ -14,7 +25,7 @@ interface AuthState {
   isLoading: boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
-  setLoading: (v: boolean) => void;
+  setLoading: (value: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -26,15 +37,47 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       login: (user, token) => set({ user, token, isAuthenticated: true }),
       logout: () => set({ user: null, token: null, isAuthenticated: false }),
-      setLoading: (v) => set({ isLoading: v }),
+      setLoading: (isLoading) => set({ isLoading }),
     }),
-    { name: 'aegis-auth' }
-  )
+    { name: 'aegis-auth' },
+  ),
 );
 
-// ─── Alert Store ─────────────────────────────────────────────────────────────
+interface UIState {
+  sidebarCollapsed: boolean;
+  theme: 'dark' | 'darker';
+  activeModal: string | null;
+  notifications: Array<{ id: string; message: string; type: string; timestamp: string }>;
+  toggleSidebar: () => void;
+  setModal: (id: string | null) => void;
+  addNotification: (message: string, type?: string) => void;
+  removeNotification: (id: string) => void;
+}
 
-interface AlertState {
+export const useUIStore = create<UIState>()(
+  persist(
+    (set, get) => ({
+      sidebarCollapsed: false,
+      theme: 'dark',
+      activeModal: null,
+      notifications: [],
+      toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
+      setModal: (activeModal) => set({ activeModal }),
+      addNotification: (message, type = 'info') => {
+        const id = Math.random().toString(36).slice(2);
+        set({ notifications: [{ id, message, type, timestamp: new Date().toISOString() }, ...get().notifications.slice(0, 9)] });
+        window.setTimeout(() => get().removeNotification(id), 5000);
+      },
+      removeNotification: (id) => set({ notifications: get().notifications.filter((item) => item.id !== id) }),
+    }),
+    {
+      name: 'aegis-ui',
+      partialize: (state) => ({ sidebarCollapsed: state.sidebarCollapsed, theme: state.theme }),
+    },
+  ),
+);
+
+interface AlertView {
   alerts: Alert[];
   activeCount: number;
   criticalCount: number;
@@ -43,75 +86,90 @@ interface AlertState {
   setAlerts: (alerts: Alert[]) => void;
   addAlert: (alert: Alert) => void;
   acknowledgeAlert: (id: string, by: string) => void;
-  resolveAlert: (id: string) => void;
+  escalateAlert: (id: string, by?: string, notes?: string) => void;
+  resolveAlert: (id: string, by?: string, notes?: string) => void;
   dismissEmergency: () => void;
   clearAlerts: () => void;
 }
 
-export const useAlertStore = create<AlertState>()((set, get) => ({
-  alerts: [],
-  activeCount: 0,
-  criticalCount: 0,
-  hasEmergency: false,
-  emergencyAlert: null,
-  setAlerts: (alerts) => {
-    const active = alerts.filter((a) => a.status === 'active');
-    const critical = active.filter((a) => a.severity === 'critical' || a.severity === 'emergency');
-    const emergency = active.find((a) => a.severity === 'emergency') ?? null;
-    set({ alerts, activeCount: active.length, criticalCount: critical.length, hasEmergency: !!emergency, emergencyAlert: emergency });
-  },
-  addAlert: (alert) => {
-    const alerts = [alert, ...get().alerts];
-    get().setAlerts(alerts);
-  },
-  acknowledgeAlert: (id, by) => {
-    const alerts = get().alerts.map((a) =>
-      a.id === id ? { ...a, status: 'acknowledged' as const, acknowledgedBy: by, acknowledgedAt: new Date().toISOString() } : a
-    );
-    get().setAlerts(alerts);
-  },
-  resolveAlert: (id) => {
-    const alerts = get().alerts.map((a) => (a.id === id ? { ...a, status: 'resolved' as const } : a));
-    get().setAlerts(alerts);
-  },
-  dismissEmergency: () => set({ hasEmergency: false, emergencyAlert: null }),
-  clearAlerts: () => get().setAlerts([]),
-}));
+const alertActions = {
+  setAlerts: (alerts: Alert[]) => useSimulationDomainStore.setState({ alerts }),
+  addAlert: (alert: Alert) => useSimulationDomainStore.getState().addAlert(alert),
+  acknowledgeAlert: (id: string, by: string) =>
+    useSimulationDomainStore.getState().transitionAlert(id, 'acknowledged', 'Safety Officer', `Acknowledged by ${by}.`),
+  escalateAlert: (id: string, by = 'Shift Supervisor', notes = '') =>
+    useSimulationDomainStore.getState().transitionAlert(id, 'escalated', 'Shift Supervisor', notes || `Escalated by ${by}.`),
+  resolveAlert: (id: string, by = 'Safety Officer', notes = '') =>
+    useSimulationDomainStore.getState().transitionAlert(id, 'resolved', 'Safety Officer', notes || `Resolved by ${by}.`),
+  dismissEmergency: () => undefined,
+  clearAlerts: () => useSimulationDomainStore.setState({ alerts: [] }),
+};
 
-// ─── Telemetry Store ─────────────────────────────────────────────────────────
+function alertView(state = useSimulationDomainStore.getState()): AlertView {
+  const active = state.alerts.filter((alert) => alert.status !== 'resolved');
+  const critical = active.filter((alert) => alert.severity === 'critical' || alert.severity === 'emergency');
+  const emergencyAlert = active.find((alert) => alert.severity === 'emergency') ?? null;
+  return {
+    alerts: state.alerts,
+    activeCount: active.length,
+    criticalCount: critical.length,
+    hasEmergency: Boolean(emergencyAlert),
+    emergencyAlert,
+    ...alertActions,
+  };
+}
 
-interface TelemetryState {
+export const useAlertStore = Object.assign(
+  () => {
+    const alerts = useSimulationDomainStore((state) => state.alerts);
+    return alertView({ ...useSimulationDomainStore.getState(), alerts });
+  },
+  { getState: () => alertView() },
+);
+
+interface TelemetryView {
   sensors: SensorReading[];
-  riskScore: RiskScore | null;
+  riskScore: RiskScore;
   isConnected: boolean;
-  lastUpdated: string | null;
+  lastUpdated: string;
   setSensors: (sensors: SensorReading[]) => void;
   updateSensor: (reading: SensorReading) => void;
   setRiskScore: (score: RiskScore) => void;
-  setConnected: (v: boolean) => void;
+  setConnected: (connected: boolean) => void;
 }
 
-export const useTelemetryStore = create<TelemetryState>()((set, get) => ({
-  sensors: mockSensorReadingsNominal,
-  riskScore: mockRiskScoreNominal,
-  isConnected: false,
-  lastUpdated: null,
-  setSensors: (sensors) => set({ sensors, lastUpdated: new Date().toISOString() }),
-  updateSensor: (reading) => {
-    const existing = get().sensors;
-    const found = existing.some((s) => s.sensorId === reading.sensorId);
-    const sensors = found
-      ? existing.map((s) => (s.sensorId === reading.sensorId ? reading : s))
-      : [reading, ...existing];
-    set({ sensors, lastUpdated: new Date().toISOString() });
+const telemetryActions = {
+  setSensors: (telemetry: SensorReading[]) => useSimulationDomainStore.setState({
+    telemetry,
+    lastUpdated: new Date().toISOString(),
+  }),
+  updateSensor: (reading: SensorReading) => useSimulationDomainStore.getState().ingestSensorReading(reading),
+  setRiskScore: (riskMetrics: RiskScore) => useSimulationDomainStore.setState({ riskMetrics }),
+  setConnected: (isConnected: boolean) => useSimulationDomainStore.getState().setConnection(isConnected),
+};
+
+function telemetryView(state = useSimulationDomainStore.getState()): TelemetryView {
+  return {
+    sensors: state.telemetry,
+    riskScore: state.riskMetrics,
+    isConnected: state.isConnected,
+    lastUpdated: state.lastUpdated,
+    ...telemetryActions,
+  };
+}
+
+export const useTelemetryStore = Object.assign(
+  () => {
+    const sensors = useSimulationDomainStore((state) => state.telemetry);
+    const riskScore = useSimulationDomainStore((state) => state.riskMetrics);
+    const isConnected = useSimulationDomainStore((state) => state.isConnected);
+    const lastUpdated = useSimulationDomainStore((state) => state.lastUpdated);
+    return { sensors, riskScore, isConnected, lastUpdated, ...telemetryActions };
   },
-  setRiskScore: (riskScore) => set({ riskScore }),
-  setConnected: (isConnected) => set({ isConnected }),
-}));
+  { getState: () => telemetryView() },
+);
 
-// ─── Incident Store ──────────────────────────────────────────────────────────
-
-interface IncidentState {
+interface IncidentView {
   incidents: Incident[];
   selectedIncident: Incident | null;
   filters: {
@@ -124,7 +182,7 @@ interface IncidentState {
   setIncidents: (incidents: Incident[]) => void;
   setSelected: (incident: Incident | null) => void;
   updateIncident: (id: string, data: Partial<Incident>) => void;
-  setFilters: (filters: Partial<IncidentState['filters']>) => void;
+  setFilters: (filters: Partial<IncidentView['filters']>) => void;
   resetFilters: () => void;
   addIncident: (incident: Incident) => void;
   clearIncidents: () => void;
@@ -132,210 +190,245 @@ interface IncidentState {
 
 const defaultFilters = { severity: [], status: [], category: [], zone: [], search: '' };
 
-export const useIncidentStore = create<IncidentState>()((set, get) => ({
-  incidents: [],
+const useIncidentUIStore = create<Pick<IncidentView, 'selectedIncident' | 'filters' | 'setSelected' | 'setFilters' | 'resetFilters'>>()((set) => ({
   selectedIncident: null,
   filters: defaultFilters,
-  setIncidents: (incidents) => set({ incidents }),
-  addIncident: (incident) => set({ incidents: [incident, ...get().incidents] }),
-  clearIncidents: () => set({ incidents: [], selectedIncident: null }),
-  setSelected: (incident) => set({ selectedIncident: incident }),
-  updateIncident: (id, data) => {
-    const incidents = get().incidents.map((i) => (i.id === id ? { ...i, ...data } : i));
-    set({ incidents });
-  },
-  setFilters: (filters) => set({ filters: { ...get().filters, ...filters } }),
+  setSelected: (selectedIncident) => set({ selectedIncident }),
+  setFilters: (filters) => set((state) => ({ filters: { ...state.filters, ...filters } })),
   resetFilters: () => set({ filters: defaultFilters }),
 }));
 
-// ─── UI Store ────────────────────────────────────────────────────────────────
+const incidentActions = {
+  setIncidents: (incidents: Incident[]) => useSimulationDomainStore.setState({ incidents }),
+  updateIncident: (id: string, data: Partial<Incident>) => useSimulationDomainStore.setState((state) => ({
+    incidents: state.incidents.map((incident) => incident.id === id ? { ...incident, ...data } : incident),
+  })),
+  addIncident: (incident: Incident) => useSimulationDomainStore.getState().addIncident(incident),
+  clearIncidents: () => useSimulationDomainStore.setState({ incidents: [] }),
+};
 
-interface UIState {
-  sidebarCollapsed: boolean;
-  theme: 'dark' | 'darker';
-  activeModal: string | null;
-  notifications: Array<{ id: string; message: string; type: string; timestamp: string }>;
-  toggleSidebar: () => void;
-  setModal: (id: string | null) => void;
-  addNotification: (msg: string, type?: string) => void;
-  removeNotification: (id: string) => void;
-}
-
-export const useUIStore = create<UIState>()(
-  persist(
-    (set, get) => ({
-      sidebarCollapsed: false,
-      theme: 'dark',
-      activeModal: null,
-      notifications: [],
-      toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
-      setModal: (id) => set({ activeModal: id }),
-      addNotification: (message, type = 'info') => {
-        const id = Math.random().toString(36).slice(2);
-        const notif = { id, message, type, timestamp: new Date().toISOString() };
-        set({ notifications: [notif, ...get().notifications.slice(0, 9)] });
-        setTimeout(() => get().removeNotification(id), 5000);
-      },
-      removeNotification: (id) =>
-        set({ notifications: get().notifications.filter((n) => n.id !== id) }),
+export const useIncidentStore = Object.assign(
+  () => {
+    const incidents = useSimulationDomainStore((state) => state.incidents);
+    const ui = useIncidentUIStore();
+    return { incidents, ...ui, ...incidentActions };
+  },
+  {
+    getState: () => ({
+      incidents: useSimulationDomainStore.getState().incidents,
+      ...useIncidentUIStore.getState(),
+      ...incidentActions,
     }),
-    { name: 'aegis-ui', partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed, theme: s.theme }) }
-  )
+  },
 );
 
-// ─── Simulation Store ────────────────────────────────────────────────────────
-
-export type SimulationScenario = 'gas_leak' | 'high_temperature' | 'machine_fault' | null;
-
-interface SimulationState {
-  activeScenario: SimulationScenario;
+interface SimulationView {
+  activeScenario: SimulationScenario | null;
   simulateGasLeak: () => void;
   simulateHighTemperature: () => void;
   simulateMachineFault: () => void;
+  simulatePPEViolation: () => void;
   resetSystem: () => void;
 }
 
-export const useSimulationStore = create<SimulationState>()((set) => ({
-  activeScenario: null,
-  simulateGasLeak: () => {
-    set({ activeScenario: 'gas_leak' });
-    const alertId = `ALT-SIM-${Date.now()}`;
-    const incidentId = `INC-SIM-${Date.now()}`;
-    
-    useAlertStore.getState().addAlert({
-      id: alertId,
-      title: 'CRITICAL: Gas Leak Detected',
-      message: 'Methane concentration at 85.0 ppm in Hazard Zone. Evacuation protocol pending.',
-      severity: 'critical',
-      status: 'active',
-      source: 'Gas Detector Alpha',
-      zone: 'Hazard Zone',
+const simulationActions = {
+  simulateGasLeak: () => useSimulationDomainStore.getState().startScenario('gas_leak'),
+  simulateHighTemperature: () => useSimulationDomainStore.getState().startScenario('high_temperature'),
+  simulateMachineFault: () => useSimulationDomainStore.getState().startScenario('machine_fault'),
+  simulatePPEViolation: () => useSimulationDomainStore.getState().startScenario('ppe_violation'),
+  resetSystem: () => useSimulationDomainStore.getState().resetSimulation(),
+};
+
+export const useSimulationStore = Object.assign(
+  () => {
+    const activeScenario = useSimulationDomainStore((state) => state.activeScenario);
+    return { activeScenario, ...simulationActions };
+  },
+  { getState: () => ({ activeScenario: useSimulationDomainStore.getState().activeScenario, ...simulationActions }) },
+);
+
+interface NotificationView {
+  logs: NotificationLog[];
+  emailsSent: number;
+  whatsappSent: number;
+  totalNotifications: number;
+  addLog: (log: NotificationLog) => void;
+  updateLogStatus: (id: string, updates: { emailStatus?: DeliveryStatus; whatsappStatus?: DeliveryStatus }) => void;
+  clearLogs: () => void;
+}
+
+const notificationActions = {
+  addLog: (log: NotificationLog) => useSimulationDomainStore.setState((state) => ({
+    notifications: [log, ...state.notifications].slice(0, 200),
+  })),
+  updateLogStatus: (id: string, updates: { emailStatus?: DeliveryStatus; whatsappStatus?: DeliveryStatus }) =>
+    useSimulationDomainStore.setState((state) => ({
+      notifications: state.notifications.map((log) => log.id === id ? { ...log, ...updates } : log),
+    })),
+  clearLogs: () => useSimulationDomainStore.setState({ notifications: [] }),
+};
+
+function notificationView(logs: NotificationLog[]): NotificationView {
+  return {
+    logs,
+    emailsSent: logs.filter((log) => log.channel === 'Email Simulation' || log.emailStatus === 'success').length,
+    whatsappSent: logs.filter((log) => log.channel === 'Message Simulation' || log.whatsappStatus === 'success').length,
+    totalNotifications: logs.length,
+    ...notificationActions,
+  };
+}
+
+export const useNotificationStore = Object.assign(
+  () => notificationView(useSimulationDomainStore((state) => state.notifications)),
+  { getState: () => notificationView(useSimulationDomainStore.getState().notifications) },
+);
+
+interface ActivityView {
+  activities: ActivityLog[];
+  addActivity: (entry: Omit<ActivityLog, 'id' | 'timestamp'>) => void;
+  clearActivities: () => void;
+}
+
+const activityActions = {
+  addActivity: (entry: Omit<ActivityLog, 'id' | 'timestamp'>) => useSimulationDomainStore.setState((state) => ({
+    activityHistory: [{
+      ...entry,
+      id: `ACT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       timestamp: new Date().toISOString(),
-      incidentId: incidentId,
-    });
-    
-    useIncidentStore.getState().addIncident({
-      id: incidentId,
-      title: 'Elevated Gas Concentration in Hazard Zone',
-      description: 'Simulated gas leak triggered.',
-      category: 'gas_leak',
-      severity: 'critical',
-      status: 'open',
-      zone: 'Hazard Zone',
-      reportedBy: 'Simulation Engine',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      tags: ['gas', 'simulation'],
-    } as Incident);
-    
-    useTelemetryStore.getState().setRiskScore({ ...mockRiskScoreNominal, overall: 85, gas: 95 });
-    
-    // Send notification
-    sendGasLeakAlert(85.0, 'ppm', 'Hazard Zone').then(r => {
-      if (r.emailStatus === 'success' || r.whatsappStatus === 'success') console.log('[Simulation] Gas leak notification sent:', r);
-      else console.warn('[Simulation] Gas leak notification failed:', r);
-    });
+    }, ...state.activityHistory].slice(0, 200),
+  })),
+  clearActivities: () => useSimulationDomainStore.setState({ activityHistory: [] }),
+};
 
-    useActivityStore.getState().addActivity({ message: 'Gas Leak Simulation Triggered', category: 'simulation' });
-    useActivityStore.getState().addActivity({ message: 'Critical Alert Generated', category: 'alert' });
-    useActivityStore.getState().addActivity({ message: 'Incident Created', category: 'incident' });
+export const useActivityStore = Object.assign(
+  () => {
+    const activities = useSimulationDomainStore((state) => state.activityHistory);
+    return { activities, ...activityActions };
   },
-  simulateHighTemperature: () => {
-    set({ activeScenario: 'high_temperature' });
-    const alertId = `ALT-SIM-${Date.now()}`;
-    const incidentId = `INC-SIM-${Date.now()}`;
-    
-    useAlertStore.getState().addAlert({
-      id: alertId,
-      title: 'WARNING: High Temperature',
-      message: 'Temperature sensor in Machine A exceeded warning threshold at 82.5°C.',
-      severity: 'warning',
-      status: 'active',
-      source: 'Temp Sensor T1',
-      zone: 'Machine A',
-      timestamp: new Date().toISOString(),
-      incidentId: incidentId,
-    });
-    
-    useIncidentStore.getState().addIncident({
-      id: incidentId,
-      title: 'High Temperature Warning - Machine A',
-      description: 'Simulated high temperature triggered.',
-      category: 'overheating',
-      severity: 'warning',
-      status: 'open',
-      zone: 'Machine A',
-      reportedBy: 'Simulation Engine',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      tags: ['temperature', 'simulation'],
-    } as Incident);
-    
-    useTelemetryStore.getState().setRiskScore({ ...mockRiskScoreNominal, overall: 45, temperature: 80 });
-    
-    // Send notification
-    sendHighTempAlert(82.5, 'Machine A').then(r => {
-      if (r.emailStatus === 'success' || r.whatsappStatus === 'success') console.log('[Simulation] High temp notification sent:', r);
-      else console.warn('[Simulation] High temp notification failed:', r);
-    });
+  { getState: () => ({ activities: useSimulationDomainStore.getState().activityHistory, ...activityActions }) },
+);
 
-    useActivityStore.getState().addActivity({ message: 'High Temperature Simulation Triggered', category: 'simulation' });
-    useActivityStore.getState().addActivity({ message: 'Warning Alert Generated', category: 'alert' });
-    useActivityStore.getState().addActivity({ message: 'Incident Created', category: 'incident' });
-  },
-  simulateMachineFault: () => {
-    set({ activeScenario: 'machine_fault' });
-    const alertId = `ALT-SIM-${Date.now()}`;
-    const incidentId = `INC-SIM-${Date.now()}`;
-    
-    useAlertStore.getState().addAlert({
-      id: alertId,
-      title: 'CRITICAL: Machine Fault',
-      message: 'Severe vibration detected in Machine B. Possible bearing failure.',
-      severity: 'critical',
-      status: 'active',
-      source: 'Vib Sensor V2',
-      zone: 'Machine B',
-      timestamp: new Date().toISOString(),
-      incidentId: incidentId,
-    });
-    
-    useIncidentStore.getState().addIncident({
-      id: incidentId,
-      title: 'Critical Machine Fault - Machine B',
-      description: 'Simulated machine fault triggered.',
-      category: 'vibration_anomaly',
-      severity: 'critical',
-      status: 'open',
-      zone: 'Machine B',
-      reportedBy: 'Simulation Engine',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      tags: ['vibration', 'simulation', 'fault'],
-    } as Incident);
-    
-    useTelemetryStore.getState().setRiskScore({ ...mockRiskScoreNominal, overall: 90, vibration: 95, equipment: 30 });
-    
-    // Send notification
-    sendMachineFaultAlert('Machine B', 'Severe Vibration - Bearing Failure').then(r => {
-      if (r.emailStatus === 'success' || r.whatsappStatus === 'success') console.log('[Simulation] Machine fault notification sent:', r);
-      else console.warn('[Simulation] Machine fault notification failed:', r);
-    });
+export interface LiveSensorData {
+  temperature: number;
+  gasLevel: number;
+  machineFault: boolean;
+  source: 'simulation' | 'tinkercad_sync';
+  scenario: string;
+  connected: boolean;
+  timestamp: string;
+}
 
-    useActivityStore.getState().addActivity({ message: 'Machine Fault Simulation Triggered', category: 'simulation' });
-    useActivityStore.getState().addActivity({ message: 'Critical Alert Generated', category: 'alert' });
-    useActivityStore.getState().addActivity({ message: 'Incident Created', category: 'incident' });
-  },
-  resetSystem: () => {
-    set({ activeScenario: null });
-    useAlertStore.getState().clearAlerts();
-    useIncidentStore.getState().clearIncidents();
-    useTelemetryStore.getState().setSensors(mockSensorReadingsNominal);
-    useTelemetryStore.getState().setRiskScore(mockRiskScoreNominal);
-  },
-}));
+export interface SensorEvent {
+  id: string;
+  type: 'Alert' | 'Incident' | 'Email' | 'WhatsApp';
+  timestamp: string;
+  severity: 'critical' | 'warning' | 'info';
+  message: string;
+}
 
-// ─── Demo Statistics Store ───────────────────────────────────────────────────
+function liveDataFromTelemetry(): LiveSensorData {
+  const state = useSimulationDomainStore.getState();
+  return {
+    temperature: state.telemetry.find((sensor) => sensor.type === 'temperature')?.value ?? 30,
+    gasLevel: state.telemetry.find((sensor) => sensor.type === 'gas')?.value ?? 20,
+    machineFault: state.activeScenario === 'machine_fault',
+    source: 'simulation',
+    scenario: state.activeScenario ?? 'normal_operation',
+    connected: state.isConnected,
+    timestamp: state.lastUpdated,
+  };
+}
+
+function liveHistory() {
+  const state = useSimulationDomainStore.getState();
+  const temperature = state.telemetryHistory.find((series) => series.sensorId === 'SEN-TEMP-001')?.readings ?? [];
+  const gas = state.telemetryHistory.find((series) => series.sensorId === 'SEN-GAS-001')?.readings ?? [];
+  return temperature.map((reading, index) => ({
+    temperature: reading.value,
+    gasLevel: gas[index]?.value ?? 20,
+    machineFault: state.activeScenario === 'machine_fault',
+    source: 'simulation' as const,
+    scenario: state.activeScenario ?? 'normal_operation',
+    connected: state.isConnected,
+    timestamp: reading.timestamp,
+  }));
+}
+
+const liveActions = {
+  setConnection: (connected: boolean) => useSimulationDomainStore.getState().setConnection(connected),
+  updateData: (data: LiveSensorData) => {
+    const timestamp = data.timestamp || new Date().toISOString();
+    const definitions = [
+      { id: 'SEN-TEMP-001', name: 'Temperature Sensor T1', type: 'temperature' as const, value: data.temperature, unit: '°C', zone: 'Processing Zone', max: 100, warning: 40, critical: 60 },
+      { id: 'SEN-GAS-001', name: 'Gas Detector G1', type: 'gas' as const, value: data.gasLevel, unit: 'ppm', zone: 'Hazard Zone', max: 100, warning: 40, critical: 80 },
+      { id: 'SEN-VIB-001', name: 'Vibration Sensor V1', type: 'vibration' as const, value: data.machineFault ? 11 : 3, unit: 'mm/s', zone: 'Machine Zone', max: 20, warning: 6, critical: 8 },
+    ];
+    definitions.forEach((definition) => {
+      useSimulationDomainStore.getState().ingestSensorReading({
+        sensorId: definition.id,
+        sensorName: definition.name,
+        type: definition.type,
+        value: definition.value,
+        unit: definition.unit,
+        zone: definition.zone,
+        status: definition.value >= definition.critical ? 'critical' : definition.value >= definition.warning ? 'warning' : 'normal',
+        timestamp,
+        min: 0,
+        max: definition.max,
+        threshold: { warning: definition.warning, critical: definition.critical },
+      });
+    });
+  },
+  addEvent: (event: Omit<SensorEvent, 'id'>) => activityActions.addActivity({
+    message: event.message,
+    category: event.type === 'Alert' ? 'alert' : event.type === 'Incident' ? 'incident' : 'notification',
+  }),
+};
+
+function liveView() {
+  const state = useSimulationDomainStore.getState();
+  const events: SensorEvent[] = state.activityHistory.map((entry) => ({
+    id: entry.id,
+    type: entry.category === 'alert' ? 'Alert' : entry.category === 'incident' ? 'Incident' : 'Email',
+    timestamp: entry.timestamp,
+    severity: entry.message.toLowerCase().includes('critical') ? 'critical' : 'info',
+    message: entry.message,
+  }));
+  return {
+    data: liveDataFromTelemetry(),
+    history: liveHistory(),
+    events,
+    isConnected: state.isConnected,
+    lastAlertTime: { temp: 0, gas: 0, fault: 0 },
+    ...liveActions,
+  };
+}
+
+export const useLiveSensorStore = Object.assign(
+  () => {
+    useSimulationDomainStore((state) => state.lastUpdated);
+    useSimulationDomainStore((state) => state.activityHistory);
+    return liveView();
+  },
+  { getState: () => liveView() },
+);
+
+interface ReportState {
+  reports: Report[];
+  addReport: (report: Report) => void;
+  clearReports: () => void;
+}
+
+export const useReportStore = create<ReportState>()(
+  persist(
+    (set) => ({
+      reports: [],
+      addReport: (report) => set((state) => ({ reports: [report, ...state.reports] })),
+      clearReports: () => set({ reports: [] }),
+    }),
+    { name: 'aegis-reports' },
+  ),
+);
 
 type DemoStatKey = 'totalSimulations' | 'totalAlerts' | 'totalIncidents' | 'totalReports' | 'totalNotifications';
 
@@ -358,246 +451,6 @@ export const useDemoStore = create<DemoState>()(
       totalNotifications: 0,
       incrementStat: (key) => set({ [key]: get()[key] + 1 }),
     }),
-    { name: 'aegis-demo-stats' }
-  )
+    { name: 'aegis-demo-stats' },
+  ),
 );
-
-// ─── Notification Store ──────────────────────────────────────────────────────
-
-import type { NotificationLog, DeliveryStatus } from '@/types';
-
-interface NotificationState {
-  logs: NotificationLog[];
-  emailsSent: number;
-  whatsappSent: number;
-  totalNotifications: number;
-  addLog: (log: NotificationLog) => void;
-  updateLogStatus: (id: string, updates: { emailStatus?: DeliveryStatus; whatsappStatus?: DeliveryStatus }) => void;
-  clearLogs: () => void;
-}
-
-export const useNotificationStore = create<NotificationState>()(
-  persist(
-    (set) => ({
-      logs: [],
-      emailsSent: 0,
-      whatsappSent: 0,
-      totalNotifications: 0,
-      addLog: (log) => set((state) => ({
-        logs: [log, ...state.logs].slice(0, 100), // Keep last 100
-        emailsSent: state.emailsSent + (log.emailStatus === 'success' ? 1 : 0),
-        whatsappSent: state.whatsappSent + (log.whatsappStatus === 'success' ? 1 : 0),
-        totalNotifications: state.totalNotifications + 1,
-      })),
-      updateLogStatus: (id, updates) => set((state) => {
-        let newEmailSuccess = 0;
-        let newWhatsappSuccess = 0;
-        
-        const newLogs = state.logs.map(log => {
-          if (log.id !== id) return log;
-          
-          if (updates.emailStatus === 'success' && log.emailStatus !== 'success') newEmailSuccess = 1;
-          if (updates.whatsappStatus === 'success' && log.whatsappStatus !== 'success') newWhatsappSuccess = 1;
-          
-          return { ...log, ...updates };
-        });
-        
-        return {
-          logs: newLogs,
-          emailsSent: state.emailsSent + newEmailSuccess,
-          whatsappSent: state.whatsappSent + newWhatsappSuccess,
-        };
-      }),
-      clearLogs: () => set({ logs: [], emailsSent: 0, whatsappSent: 0, totalNotifications: 0 }),
-    }),
-    { name: 'aegis-notifications' }
-  )
-);
-
-// ─── Report Store ────────────────────────────────────────────────────────────
-
-import type { Report, ActivityLog } from '@/types';
-
-interface ReportState {
-  reports: Report[];
-  addReport: (report: Report) => void;
-  clearReports: () => void;
-}
-
-export const useReportStore = create<ReportState>()(
-  persist(
-    (set) => ({
-      reports: [],
-      addReport: (report) => set((state) => ({ reports: [report, ...state.reports] })),
-      clearReports: () => set({ reports: [] }),
-    }),
-    { name: 'aegis-reports' }
-  )
-);
-
-// ─── Activity Timeline Store ──────────────────────────────────────────────────
-
-interface ActivityState {
-  activities: ActivityLog[];
-  addActivity: (activity: Omit<ActivityLog, 'id' | 'timestamp'>) => void;
-  clearActivities: () => void;
-}
-
-export const useActivityStore = create<ActivityState>()(
-  persist(
-    (set) => ({
-      activities: [],
-      addActivity: (activity) => {
-        const newLog: ActivityLog = {
-          ...activity,
-          id: `ACT-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          timestamp: new Date().toISOString(),
-        };
-        set((state) => ({ activities: [newLog, ...state.activities].slice(0, 200) }));
-      },
-      clearActivities: () => set({ activities: [] }),
-    }),
-    { name: 'aegis-activity-log' }
-  )
-);
-
-// ─── Live Sensor Store (Tinkercad Integration) ──────────────────────────────
-
-export interface LiveSensorData {
-  temperature: number;
-  gasLevel: number;
-  machineFault: boolean;
-  source: 'simulation' | 'tinkercad_sync';
-  scenario: string;
-  connected: boolean;
-  timestamp: string;
-}
-
-export interface SensorEvent {
-  id: string;
-  type: 'Alert' | 'Incident' | 'Email' | 'WhatsApp';
-  timestamp: string;
-  severity: 'critical' | 'warning' | 'info';
-  message: string;
-}
-
-interface LiveSensorState {
-  data: LiveSensorData | null;
-  history: LiveSensorData[];
-  events: SensorEvent[];
-  isConnected: boolean;
-  lastAlertTime: Record<string, number>;
-  setConnection: (status: boolean) => void;
-  updateData: (data: LiveSensorData) => void;
-  addEvent: (event: Omit<SensorEvent, 'id'>) => void;
-}
-
-export const useLiveSensorStore = create<LiveSensorState>()((set, get) => ({
-  data: null,
-  history: [],
-  events: [],
-  isConnected: false,
-  lastAlertTime: { temp: 0, gas: 0, fault: 0 },
-  setConnection: (status) => set({ isConnected: status }),
-  addEvent: (event) => set((state) => ({
-    events: [...state.events, { ...event, id: Math.random().toString(36).substr(2, 9) }].slice(-100)
-  })),
-  updateData: (data) => {
-    set((state) => ({
-      data,
-      history: [...state.history, data].slice(-100)
-    }));
-
-    // Update individual sensors in useTelemetryStore
-    useTelemetryStore.getState().updateSensor({
-      sensorId: 'SEN-TEMP-001',
-      sensorName: 'Temperature Sensor T1',
-      type: 'temperature',
-      value: data.temperature,
-      unit: '°C',
-      zone: 'Zone-A',
-      status: data.temperature > 100 ? 'critical' : data.temperature > 75 ? 'warning' : 'normal',
-      timestamp: data.timestamp,
-      min: 0,
-      max: 150,
-      threshold: { warning: 75, critical: 100 }
-    });
-
-    useTelemetryStore.getState().updateSensor({
-      sensorId: 'SEN-GAS-001',
-      sensorName: 'Gas Detector Alpha',
-      type: 'gas',
-      value: data.gasLevel,
-      unit: 'ppm',
-      zone: 'Zone-A',
-      status: data.gasLevel > 70 ? 'critical' : data.gasLevel > 35 ? 'warning' : 'normal',
-      timestamp: data.timestamp,
-      min: 0,
-      max: 100,
-      threshold: { warning: 35, critical: 70 }
-    });
-
-    useTelemetryStore.getState().updateSensor({
-      sensorId: 'SEN-VIB-001',
-      sensorName: 'Vibration Sensor V1',
-      type: 'vibration',
-      value: data.machineFault ? 15.0 : 3.2,
-      unit: 'mm/s',
-      zone: 'Zone-D',
-      status: data.machineFault ? 'critical' : 'normal',
-      timestamp: data.timestamp,
-      min: 0,
-      max: 20,
-      threshold: { warning: 6, critical: 8 }
-    });
-
-    // Update risk score to dynamically match overriden values
-    const tempRisk = Math.round((data.temperature / 100) * 100);
-    const gasRisk = Math.round((data.gasLevel / 200) * 100);
-    const vibRisk = data.machineFault ? 95 : 10;
-    const overallRisk = Math.max(tempRisk, gasRisk, vibRisk);
-    useTelemetryStore.getState().setRiskScore({
-      overall: overallRisk,
-      gas: gasRisk,
-      temperature: tempRisk,
-      vibration: vibRisk,
-      ppe: 98,
-      equipment: data.machineFault ? 30 : 92,
-      updatedAt: data.timestamp
-    });
-    
-    // Threshold Engine
-    const now = Date.now();
-    const COOLDOWN = 30000; // 30 seconds cooldown between alerts of the same type to prevent spam
-    
-    const state = get();
-    const lastAlert = state.lastAlertTime;
-    
-    const triggerEvents = (severity: 'critical' | 'warning', message: string) => {
-      const ts = new Date().toISOString();
-      get().addEvent({ type: 'Alert', timestamp: ts, severity, message: `Alert: ${message}` });
-      get().addEvent({ type: 'Incident', timestamp: ts, severity, message: `Incident Created: ${message}` });
-      get().addEvent({ type: 'Email', timestamp: ts, severity, message: `Email Dispatch: ${message}` });
-      get().addEvent({ type: 'WhatsApp', timestamp: ts, severity, message: `WhatsApp Dispatch: ${message}` });
-    };
-    
-    // Temperature check (> 60)
-    if (data.temperature > 60 && now - lastAlert.temp > COOLDOWN) {
-      set({ lastAlertTime: { ...get().lastAlertTime, temp: now } });
-      useSimulationStore.getState().simulateHighTemperature();
-      triggerEvents('critical', 'High Temperature Detected');
-    }
-    // Gas check (> 80)
-    if (data.gasLevel > 80 && now - lastAlert.gas > COOLDOWN) {
-      set({ lastAlertTime: { ...get().lastAlertTime, gas: now } });
-      useSimulationStore.getState().simulateGasLeak();
-      triggerEvents('critical', 'Gas Leak Detected');
-    }
-    // Machine fault check (True)
-    if (data.machineFault && now - lastAlert.fault > COOLDOWN) {
-      set({ lastAlertTime: { ...get().lastAlertTime, fault: now } });
-      useSimulationStore.getState().simulateMachineFault();
-      triggerEvents('critical', 'Machine Fault Detected');
-    }
-  }
-}));
