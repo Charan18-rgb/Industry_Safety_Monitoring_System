@@ -6,20 +6,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, LayoutDashboard, AlertTriangle, Activity, Map,
   Bell, BarChart3, Settings, ChevronLeft, ChevronRight,
-  Zap, Radio, LogOut, Camera
+  Zap, Radio, LogOut, Camera, MessageSquare
 } from 'lucide-react';
 import { useAuthStore, useAlertStore, useUIStore } from '@/store';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Command Center', badge: null },
-  { href: '/incidents', icon: AlertTriangle, label: 'Incident Tracking', badge: 'incidents' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', badge: null },
   { href: '/telemetry', icon: Activity, label: 'Sensor Monitoring', badge: null },
-  { href: '/digital-twin', icon: Map, label: 'Digital Twin', badge: null },
-  { href: '/vision', icon: Camera, label: 'Camera Monitoring', badge: null },
+  { href: '/incidents', icon: AlertTriangle, label: 'Incident Tracking', badge: 'incidents' },
+  { href: '/alerts', icon: Bell, label: 'Alert Management', badge: 'alerts' },
   { href: '/executive', icon: BarChart3, label: 'Safety Analytics', badge: null },
-  { href: '/alerts', icon: Bell, label: 'Alerts', badge: 'alerts' },
-  { href: '/reports', icon: BarChart3, label: 'Reports', badge: null },
+  { href: '/digital-twin', icon: Map, label: 'Simulated Plant Layout', badge: null },
+  { href: '/vision', icon: Camera, label: 'Camera Monitoring', badge: null },
+  { href: '/notifications', icon: MessageSquare, label: 'Notifications', badge: null },
   { href: '/settings', icon: Settings, label: 'Settings', badge: null },
 ];
 
@@ -59,7 +59,7 @@ export function Sidebar() {
               className="overflow-hidden"
             >
               <div className="font-display text-sm font-black text-white tracking-widest leading-none">AEGIS</div>
-              <div className="text-[#3a5a7a] text-[10px] font-mono tracking-wider">COMMAND CENTER</div>
+              <div className="text-[#3a5a7a] text-[10px] font-mono tracking-wider">SAFETY MONITORING</div>
             </motion.div>
           )}
         </AnimatePresence>

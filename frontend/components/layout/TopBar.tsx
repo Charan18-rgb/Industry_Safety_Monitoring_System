@@ -2,20 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Search, Wifi, Clock, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, Wifi, Clock, ChevronDown, LogOut, Shield } from 'lucide-react';
 import { useAuthStore, useAlertStore, useSimulationStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 import { formatTimestamp } from '@/lib/utils';
 
 export function TopBar() {
   const { user, logout } = useAuthStore();
   const { activeCount } = useAlertStore();
-  // isConnected removed since it is unused
+  const isConnected = useSimulationDomainStore((state) => state.isConnected);
   const [time, setTime] = useState(new Date());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showSimMenu, setShowSimMenu] = useState(false);
   
-  const { simulateGasLeak, simulateHighTemperature, simulateMachineFault, resetSystem, activeScenario } = useSimulationStore();
+  const { simulateGasLeak, simulateHighTemperature, simulateMachineFault, simulatePPEViolation, resetSystem, activeScenario } = useSimulationStore();
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -34,16 +35,9 @@ export function TopBar() {
       {/* Top glow */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
 
-      {/* Search */}
-      <div className="flex-1 max-w-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#3a5a7a]" />
-          <input
-            type="text"
-            placeholder="Search incidents, sensors, zones..."
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-[rgba(0,212,255,0.04)] border border-[rgba(0,212,255,0.1)] text-[#7fa3c4] placeholder-[#3a5a7a] outline-none focus:border-cyan-400/30 focus:text-white transition-all duration-200 text-sm"
-          />
-        </div>
+      <div className="flex-1 flex items-center gap-2 text-[#7fa3c4]">
+        <Shield className="w-4 h-4 text-cyan-400" />
+        <span className="text-xs font-mono hidden sm:inline">Industrial Safety Monitoring Platform</span>
       </div>
 
       <div className="flex items-center gap-4 ml-auto">
@@ -54,9 +48,9 @@ export function TopBar() {
         </div>
 
         {/* Connection status */}
-        <div className="flex items-center gap-1.5 text-green-400">
+        <div className={`flex items-center gap-1.5 ${isConnected ? 'text-green-400' : 'text-amber-400'}`}>
           <Wifi className="w-4 h-4" />
-          <span className="text-xs font-mono hidden sm:inline">DEMO MODE</span>
+          <span className="text-xs font-mono hidden sm:inline">Simulation Environment</span>
         </div>
 
         {/* Simulation menu */}
@@ -99,6 +93,12 @@ export function TopBar() {
                   className="w-full text-left px-3 py-2 text-sm text-[#7fa3c4] hover:text-white hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition-colors"
                 >
                   Simulate Machine Fault
+                </button>
+                <button
+                  onClick={() => { simulatePPEViolation(); setShowSimMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-sm text-[#7fa3c4] hover:text-white hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition-colors"
+                >
+                  Simulate PPE Violation
                 </button>
                 <div className="h-px bg-[rgba(0,212,255,0.1)] my-1" />
                 <button
