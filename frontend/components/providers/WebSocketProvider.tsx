@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useTelemetryStore, useAlertStore, useAuthStore, useLiveSensorStore } from '@/store';
+import { useAuthStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 
 const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthStore();
-  const { setConnected, updateSensor } = useTelemetryStore();
-  const { addAlert } = useAlertStore();
+  const setConnection = useSimulationDomainStore((state) => state.setConnection);
+  const ingestSensorReading = useSimulationDomainStore((state) => state.ingestSensorReading);
+  const addAlert = useSimulationDomainStore((state) => state.addAlert);
   
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -29,19 +31,16 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
       ws.onopen = () => {
         attempts = 0;
-        setConnected(true);
-        useLiveSensorStore.getState().setConnection(true);
+        setConnection(true);
       };
 
       ws.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
           if ((payload.type === 'telemetry' || payload.type === 'sensor_update') && payload.data) {
-            updateSensor(payload.data);
+            ingestSensorReading(payload.data);
           } else if (payload.type === 'alert' && payload.data) {
             addAlert(payload.data);
-          } else if (payload.type === 'tinkercad_sensor' && payload.data) {
-            useLiveSensorStore.getState().updateData(payload.data);
           }
         } catch {
           // Ignore malformed messages without interrupting the stream.
@@ -49,8 +48,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       };
 
       ws.onclose = () => {
-        setConnected(false);
-        useLiveSensorStore.getState().setConnection(false);
+        setConnection(false);
         if (!cancelled) {
           const delay = Math.min(1000 * 2 ** attempts, 15000);
           attempts += 1;
@@ -72,7 +70,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
         wsRef.current.close();
       }
     };
-  }, [user, setConnected, updateSensor, addAlert]);
+  }, [user, setConnection, ingestSensorReading, addAlert]);
 
   return <>{children}</>;
 }

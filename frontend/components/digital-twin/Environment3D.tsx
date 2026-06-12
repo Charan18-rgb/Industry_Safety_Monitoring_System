@@ -1,9 +1,9 @@
 'use client';
 
-import { useSimulationStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 
 export function Environment3D() {
-  const { activeScenario } = useSimulationStore();
+  const activeScenario = useSimulationDomainStore((state) => state.activeScenario);
 
   // Determine status colors based on active scenario
   const hazardStatus = activeScenario === 'gas_leak' ? 'critical' : 'safe';

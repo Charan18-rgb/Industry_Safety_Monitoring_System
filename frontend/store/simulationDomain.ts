@@ -96,40 +96,55 @@ const SCENARIO_DURATION_TICKS = 20;
 
 const SENSOR_DEFINITIONS: SensorDefinition[] = [
   {
-    id: 'SEN-TEMP-001', name: 'Temperature Sensor T1', type: 'temperature', unit: '°C',
-    zone: 'Processing Zone', min: 0, max: 100, baseline: 30, amplitude: 2.2,
-    warning: 40, critical: 60, phase: 0,
-  },
-  {
-    id: 'SEN-GAS-001', name: 'Gas Detector G1', type: 'gas', unit: 'ppm',
-    zone: 'Hazard Zone', min: 0, max: 100, baseline: 20, amplitude: 5,
+    id: 'SEN-GAS-ALPHA', name: 'Gas Detector Alpha', type: 'gas', unit: 'ppm',
+    zone: 'Zone-A', min: 0, max: 100, baseline: 20, amplitude: 5,
     warning: 40, critical: 80, phase: 1.1,
   },
   {
-    id: 'SEN-HUM-001', name: 'Humidity Sensor H1', type: 'humidity', unit: '%',
-    zone: 'Storage Zone', min: 0, max: 100, baseline: 57, amplitude: 8,
+    id: 'SEN-GAS-BETA', name: 'Gas Detector Beta', type: 'gas', unit: 'ppm',
+    zone: 'Zone-B', min: 0, max: 100, baseline: 18, amplitude: 4.5,
+    warning: 40, critical: 80, phase: 1.3,
+  },
+  {
+    id: 'SEN-TEMP-T1', name: 'Temperature Sensor T1', type: 'temperature', unit: '°C',
+    zone: 'Zone-A', min: 0, max: 100, baseline: 30, amplitude: 2.2,
+    warning: 40, critical: 60, phase: 0,
+  },
+  {
+    id: 'SEN-TEMP-T2', name: 'Temperature Sensor T2', type: 'temperature', unit: '°C',
+    zone: 'Zone-C', min: 0, max: 100, baseline: 28, amplitude: 2.0,
+    warning: 40, critical: 60, phase: 0.5,
+  },
+  {
+    id: 'SEN-HUM-H1', name: 'Humidity Sensor H1', type: 'humidity', unit: '%',
+    zone: 'Zone-B', min: 0, max: 100, baseline: 57, amplitude: 8,
     warning: 78, critical: 88, phase: 2.2,
   },
   {
-    id: 'SEN-PRES-001', name: 'Pressure Sensor P1', type: 'pressure', unit: 'bar',
-    zone: 'Compressor Zone', min: 0, max: 12, baseline: 5, amplitude: 1.1,
-    warning: 8, critical: 10, phase: 0.7,
+    id: 'SEN-VIB-V1', name: 'Vibration Sensor V1', type: 'vibration', unit: 'mm/s',
+    zone: 'Zone-D', min: 0, max: 20, baseline: 3, amplitude: 1.2,
+    warning: 6, critical: 8, phase: 1.8,
   },
   {
-    id: 'SEN-VIB-001', name: 'Vibration Sensor V1', type: 'vibration', unit: 'mm/s',
-    zone: 'Machine Zone', min: 0, max: 20, baseline: 3, amplitude: 1.2,
-    warning: 6, critical: 8, phase: 1.8,
+    id: 'SEN-VIB-V2', name: 'Vibration Sensor V2', type: 'vibration', unit: 'mm/s',
+    zone: 'Zone-A', min: 0, max: 20, baseline: 2.8, amplitude: 1.0,
+    warning: 6, critical: 8, phase: 1.6,
+  },
+  {
+    id: 'SEN-PRES-P1', name: 'Pressure Sensor P1', type: 'pressure', unit: 'bar',
+    zone: 'Zone-C', min: 0, max: 12, baseline: 5, amplitude: 1.1,
+    warning: 8, critical: 10, phase: 0.7,
   },
 ];
 
 const SCENARIOS: Record<SimulationScenario, ScenarioDefinition> = {
   gas_leak: {
     title: 'Gas Leak Detected',
-    message: 'Gas concentration exceeded the critical safety threshold in the Hazard Zone.',
+    message: 'Gas concentration exceeded the critical safety threshold in Zone-A.',
     category: 'gas_leak',
     severity: 'critical',
-    zone: 'Hazard Zone',
-    source: 'Gas Detector G1',
+    zone: 'Zone-A',
+    source: 'Gas Detector Alpha',
     actor: 'Control Room Operator',
     createsIncident: true,
   },
@@ -137,8 +152,8 @@ const SCENARIOS: Record<SimulationScenario, ScenarioDefinition> = {
     title: 'High Temperature Detected',
     message: 'Process temperature exceeded the critical operating threshold.',
     category: 'overheating',
-    severity: 'critical',
-    zone: 'Processing Zone',
+    severity: 'warning',
+    zone: 'Zone-A',
     source: 'Temperature Sensor T1',
     actor: 'Shift Supervisor',
     createsIncident: true,
@@ -148,7 +163,7 @@ const SCENARIOS: Record<SimulationScenario, ScenarioDefinition> = {
     message: 'Sustained vibration indicates a possible rotating equipment fault.',
     category: 'vibration_anomaly',
     severity: 'critical',
-    zone: 'Machine Zone',
+    zone: 'Zone-D',
     source: 'Vibration Sensor V1',
     actor: 'Maintenance Engineer',
     createsIncident: true,
@@ -158,7 +173,7 @@ const SCENARIOS: Record<SimulationScenario, ScenarioDefinition> = {
     message: 'Camera simulation identified a worker without the required safety helmet.',
     category: 'ppe_violation',
     severity: 'warning',
-    zone: 'Loading Zone',
+    zone: 'Zone-B',
     source: 'Camera Monitoring',
     actor: 'Safety Officer',
     createsIncident: true,
@@ -212,8 +227,8 @@ function initialHistory(): TelemetryHistory[] {
   const now = Date.now();
   return SENSOR_DEFINITIONS.map((definition) => ({
     sensorId: definition.id,
-    readings: Array.from({ length: 30 }, (_, index) => {
-      const tick = index - 29;
+    readings: Array.from({ length: 100 }, (_, index) => {
+      const tick = index - 99;
       const timestamp = new Date(now + tick * 1000).toISOString();
       const reading = readingFor(definition, tick, timestamp, null);
       return { timestamp, value: reading.value, status: reading.status };
@@ -221,7 +236,12 @@ function initialHistory(): TelemetryHistory[] {
   }));
 }
 
-function calculateRisk(telemetry: SensorReading[], ppeRisk: number, timestamp: string): RiskScore {
+function calculateRisk(
+  telemetry: SensorReading[],
+  alerts: Alert[],
+  incidents: Incident[],
+  timestamp: string,
+): RiskScore {
   const byType = (type: SensorType) => telemetry.find((sensor) => sensor.type === type);
   const riskRatio = (sensor: SensorReading | undefined) => {
     if (!sensor) return 0;
@@ -231,12 +251,33 @@ function calculateRisk(telemetry: SensorReading[], ppeRisk: number, timestamp: s
   const temperature = riskRatio(byType('temperature'));
   const vibration = riskRatio(byType('vibration'));
   const equipment = clamp(100 - vibration, 0, 100);
+
+  const activeAlerts = alerts.filter((a) => a.status !== 'resolved');
+  const openIncidents = incidents.filter((i) => i.status !== 'resolved' && i.status !== 'closed');
+
+  const alertRisk = activeAlerts.reduce((sum, alert) => {
+    if (alert.severity === 'critical') return sum + 25;
+    if (alert.severity === 'warning') return sum + 15;
+    if (alert.severity === 'info') return sum + 5;
+    return sum;
+  }, 0);
+
+  const incidentRisk = openIncidents.length * 10;
+
+  const thresholdViolations = telemetry.filter((s) => s.status === 'critical').length * 15;
+
+  const overall = clamp(
+    Math.max(gas, temperature, vibration, alertRisk + incidentRisk + thresholdViolations),
+    0,
+    100,
+  );
+
   return {
-    overall: Math.max(gas, temperature, vibration, ppeRisk),
+    overall,
     gas,
     temperature,
     vibration,
-    ppe: ppeRisk,
+    ppe: 0,
     equipment,
     updatedAt: timestamp,
   };
@@ -283,7 +324,7 @@ export const useSimulationDomainStore = create<SimulationDomainState>()((set, ge
   alerts: [],
   incidents: [],
   notifications: [],
-  riskMetrics: calculateRisk(initialTelemetry, 2, initialTimestamp),
+  riskMetrics: calculateRisk(initialTelemetry, [], [], initialTimestamp),
   cameraState: 'active',
   cameraConnected: true,
   captureHistory: [],
@@ -320,7 +361,7 @@ export const useSimulationDomainStore = create<SimulationDomainState>()((set, ge
       tickCount,
       telemetry,
       telemetryHistory,
-      riskMetrics: calculateRisk(telemetry, ppeRisk, timestamp),
+      riskMetrics: calculateRisk(telemetry, state.alerts, state.incidents, timestamp),
       lastUpdated: timestamp,
       activeScenario,
       scenarioStartedAt: scenarioExpired ? null : state.scenarioStartedAt,
@@ -406,7 +447,7 @@ export const useSimulationDomainStore = create<SimulationDomainState>()((set, ge
       activeScenario: null,
       scenarioStartedAt: null,
       telemetry,
-      riskMetrics: calculateRisk(telemetry, 2, timestamp),
+      riskMetrics: calculateRisk(telemetry, state.alerts, state.incidents, timestamp),
       cameraState: 'active',
       lastUpdated: timestamp,
       systemHealth: 98,
@@ -478,7 +519,7 @@ export const useSimulationDomainStore = create<SimulationDomainState>()((set, ge
       telemetry,
       telemetryHistory,
       lastUpdated: reading.timestamp,
-      riskMetrics: calculateRisk(telemetry, state.riskMetrics.ppe, reading.timestamp),
+      riskMetrics: calculateRisk(telemetry, state.alerts, state.incidents, reading.timestamp),
     };
   }),
   setCameraState: (cameraState) => set({ cameraState }),

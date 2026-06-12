@@ -3,20 +3,23 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Wifi, Clock, ChevronDown, LogOut, Shield } from 'lucide-react';
-import { useAuthStore, useAlertStore, useSimulationStore } from '@/store';
+import { useAuthStore } from '@/store';
 import { useSimulationDomainStore } from '@/store/simulationDomain';
 import { formatTimestamp } from '@/lib/utils';
 
 export function TopBar() {
   const { user, logout } = useAuthStore();
-  const { activeCount } = useAlertStore();
+  const alerts = useSimulationDomainStore((state) => state.alerts);
+  const activeScenario = useSimulationDomainStore((state) => state.activeScenario);
+  const startScenario = useSimulationDomainStore((state) => state.startScenario);
+  const resetSimulation = useSimulationDomainStore((state) => state.resetSimulation);
   const isConnected = useSimulationDomainStore((state) => state.isConnected);
   const [time, setTime] = useState(new Date());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showSimMenu, setShowSimMenu] = useState(false);
-  
-  const { simulateGasLeak, simulateHighTemperature, simulateMachineFault, simulatePPEViolation, resetSystem, activeScenario } = useSimulationStore();
+
+  const activeCount = alerts.filter((alert) => alert.status !== 'resolved').length;
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -77,32 +80,32 @@ export function TopBar() {
                 className="absolute right-0 top-full mt-2 w-48 glass-card-bright rounded-xl overflow-hidden z-50 p-1"
               >
                 <button
-                  onClick={() => { simulateGasLeak(); setShowSimMenu(false); }}
+                  onClick={() => { startScenario('gas_leak'); setShowSimMenu(false); }}
                   className="w-full text-left px-3 py-2 text-sm text-[#7fa3c4] hover:text-white hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition-colors"
                 >
                   Simulate Gas Leak
                 </button>
                 <button
-                  onClick={() => { simulateHighTemperature(); setShowSimMenu(false); }}
+                  onClick={() => { startScenario('high_temperature'); setShowSimMenu(false); }}
                   className="w-full text-left px-3 py-2 text-sm text-[#7fa3c4] hover:text-white hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition-colors"
                 >
                   Simulate High Temp
                 </button>
                 <button
-                  onClick={() => { simulateMachineFault(); setShowSimMenu(false); }}
+                  onClick={() => { startScenario('machine_fault'); setShowSimMenu(false); }}
                   className="w-full text-left px-3 py-2 text-sm text-[#7fa3c4] hover:text-white hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition-colors"
                 >
                   Simulate Machine Fault
                 </button>
                 <button
-                  onClick={() => { simulatePPEViolation(); setShowSimMenu(false); }}
+                  onClick={() => { startScenario('ppe_violation'); setShowSimMenu(false); }}
                   className="w-full text-left px-3 py-2 text-sm text-[#7fa3c4] hover:text-white hover:bg-[rgba(0,212,255,0.1)] rounded-lg transition-colors"
                 >
                   Simulate PPE Violation
                 </button>
                 <div className="h-px bg-[rgba(0,212,255,0.1)] my-1" />
                 <button
-                  onClick={() => { resetSystem(); setShowSimMenu(false); }}
+                  onClick={() => { resetSimulation(); setShowSimMenu(false); }}
                   className="w-full text-left px-3 py-2 text-sm text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
                 >
                   Reset System

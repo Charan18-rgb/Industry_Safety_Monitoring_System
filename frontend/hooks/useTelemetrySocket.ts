@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useTelemetryStore, useAlertStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 import type { Alert, SensorReading } from '@/types';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws/telemetry';
@@ -17,8 +17,9 @@ export function useTelemetrySocket() {
   const reconnectAttempts = useRef(0);
   const maxReconnects = 5;
 
-  const { updateSensor, setConnected } = useTelemetryStore();
-  const { addAlert } = useAlertStore();
+  const ingestSensorReading = useSimulationDomainStore((state) => state.ingestSensorReading);
+  const setConnection = useSimulationDomainStore((state) => state.setConnection);
+  const addAlert = useSimulationDomainStore((state) => state.addAlert);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,14 +31,14 @@ export function useTelemetrySocket() {
 
         ws.current.onopen = () => {
           reconnectAttempts.current = 0;
-          setConnected(true);
+          setConnection(true);
           console.log('[AEGIS-WS] Connected to telemetry stream');
         };
 
         ws.current.onmessage = (event) => {
           try {
             const msg: WSMessage = JSON.parse(event.data);
-            if (msg.type === 'sensor_update') updateSensor(msg.data);
+            if (msg.type === 'sensor_update') ingestSensorReading(msg.data);
             else if (msg.type === 'alert') addAlert(msg.data);
           } catch {
             // Ignore malformed messages without breaking the stream.
@@ -45,7 +46,7 @@ export function useTelemetrySocket() {
         };
 
         ws.current.onclose = () => {
-          setConnected(false);
+          setConnection(false);
           if (!cancelled && reconnectAttempts.current < maxReconnects) {
             const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000);
             reconnectAttempts.current += 1;
@@ -57,7 +58,7 @@ export function useTelemetrySocket() {
           ws.current?.close();
         };
       } catch {
-        setConnected(false);
+        setConnection(false);
       }
     }
 
@@ -68,5 +69,5 @@ export function useTelemetrySocket() {
       ws.current?.close();
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-  }, [updateSensor, addAlert, setConnected]);
+  }, [ingestSensorReading, addAlert, setConnection]);
 }

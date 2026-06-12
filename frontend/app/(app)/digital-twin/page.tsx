@@ -4,11 +4,10 @@ import { Activity, Box, Gauge, MapPin } from 'lucide-react';
 import { useSimulationDomainStore } from '@/store/simulationDomain';
 
 const ZONES = [
-  { name: 'Processing Zone', equipment: 'Reactor A', sensorType: 'temperature', x: '8%', y: '12%', width: '39%', height: '35%' },
-  { name: 'Hazard Zone', equipment: 'Gas Manifold', sensorType: 'gas', x: '53%', y: '12%', width: '39%', height: '35%' },
-  { name: 'Storage Zone', equipment: 'Material Storage', sensorType: 'humidity', x: '8%', y: '54%', width: '25%', height: '34%' },
-  { name: 'Compressor Zone', equipment: 'Compressor P1', sensorType: 'pressure', x: '38%', y: '54%', width: '25%', height: '34%' },
-  { name: 'Machine Zone', equipment: 'Motor V1', sensorType: 'vibration', x: '68%', y: '54%', width: '24%', height: '34%' },
+  { name: 'Zone-A', description: 'Gas Monitoring Area', sensorType: 'gas', x: '8%', y: '12%', width: '39%', height: '35%' },
+  { name: 'Zone-B', description: 'Worker Operations Area', sensorType: 'humidity', x: '53%', y: '12%', width: '39%', height: '35%' },
+  { name: 'Zone-C', description: 'Storage and Pressure Systems', sensorType: 'pressure', x: '8%', y: '54%', width: '39%', height: '34%' },
+  { name: 'Zone-D', description: 'Heavy Machinery Area', sensorType: 'vibration', x: '53%', y: '54%', width: '39%', height: '34%' },
 ] as const;
 
 export default function SimulatedPlantLayoutPage() {
@@ -39,7 +38,7 @@ export default function SimulatedPlantLayoutPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2 text-white text-sm font-semibold"><MapPin className="w-4 h-4" style={{ color }} />{zone.name}</div>
-                      <div className="text-[#587996] text-xs mt-1 flex items-center gap-1.5"><Box className="w-3 h-3" />{zone.equipment}</div>
+                      <div className="text-[#587996] text-xs mt-1 flex items-center gap-1.5"><Box className="w-3 h-3" />{zone.description}</div>
                     </div>
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 12px ${color}` }} />
                   </div>

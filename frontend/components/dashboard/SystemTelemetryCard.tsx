@@ -1,14 +1,18 @@
 'use client';
 
-import { useLiveSensorStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 import { Cpu, Wifi, Clock, Activity } from 'lucide-react';
 
 export function SystemTelemetryCard() {
-  const { data, isConnected } = useLiveSensorStore();
+  const telemetry = useSimulationDomainStore((state) => state.telemetry);
+  const isConnected = useSimulationDomainStore((state) => state.isConnected);
+  const lastUpdated = useSimulationDomainStore((state) => state.lastUpdated);
 
-  const formattedTime = data?.timestamp 
-    ? new Date(data.timestamp).toLocaleTimeString() 
+  const formattedTime = lastUpdated 
+    ? new Date(lastUpdated).toLocaleTimeString() 
     : 'Waiting for first tick';
+
+  const connectedSensors = telemetry.filter((sensor) => sensor.status !== 'offline').length;
 
   return (
     <div className="glass-card p-6 border-l-4 border-l-cyan-500 mb-6 relative overflow-hidden">
@@ -42,9 +46,9 @@ export function SystemTelemetryCard() {
         </div>
 
         <div className="flex justify-between items-center bg-white/5 p-3 rounded border border-white/10">
-          <span className="text-[#7fa3c4] text-xs font-bold uppercase tracking-wider">Connection Status</span>
+          <span className="text-[#7fa3c4] text-xs font-bold uppercase tracking-wider">Connected Sensors</span>
           <span className="text-green-400 text-sm font-mono font-bold">
-            Live Data Connected
+            {connectedSensors} / {telemetry.length}
           </span>
         </div>
 

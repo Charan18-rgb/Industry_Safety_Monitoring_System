@@ -8,7 +8,8 @@ import {
   Bell, BarChart3, Settings, ChevronLeft, ChevronRight,
   Zap, Radio, LogOut, Camera, MessageSquare
 } from 'lucide-react';
-import { useAuthStore, useAlertStore, useUIStore } from '@/store';
+import { useAuthStore, useUIStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -26,8 +27,11 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
-  const { activeCount, criticalCount } = useAlertStore();
+  const alerts = useSimulationDomainStore((state) => state.alerts);
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+
+  const activeCount = alerts.filter((alert) => alert.status !== 'resolved').length;
+  const criticalCount = alerts.filter((alert) => alert.severity === 'critical' && alert.status !== 'resolved').length;
 
   const getBadge = (key: string | null) => {
     if (!key) return null;

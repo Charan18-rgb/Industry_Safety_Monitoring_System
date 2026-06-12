@@ -2,20 +2,20 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X, Zap } from 'lucide-react';
-import { useAlertStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 import Link from 'next/link';
 
 export function AlertBanner() {
-  const { criticalCount, emergencyAlert, hasEmergency, dismissEmergency, alerts } = useAlertStore();
+  const alerts = useSimulationDomainStore((state) => state.alerts);
 
-  const topCritical = alerts.find((a) => a.severity === 'critical' && a.status === 'active');
+  const criticalAlerts = alerts.filter((a) => a.severity === 'critical' && a.status === 'active');
+  const topCritical = criticalAlerts[0];
 
-  if (!topCritical && !hasEmergency) return null;
+  if (!topCritical) return null;
 
-  const alert = emergencyAlert ?? topCritical;
-  if (!alert) return null;
-
+  const alert = topCritical;
   const isEmergency = alert.severity === 'emergency';
+  const criticalCount = criticalAlerts.length;
 
   return (
     <AnimatePresence>
@@ -49,13 +49,6 @@ export function AlertBanner() {
           <Link href="/alerts" className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors font-mono whitespace-nowrap flex-shrink-0">
             View All →
           </Link>
-
-          <button
-            onClick={dismissEmergency}
-            className="text-[#7fa3c4] hover:text-white transition-colors flex-shrink-0"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
         </div>
       </motion.div>
     </AnimatePresence>

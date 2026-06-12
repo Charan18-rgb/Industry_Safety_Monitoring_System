@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ShieldAlert, Volume2, VolumeX } from 'lucide-react';
-import { useAlertStore } from '@/store';
+import { useSimulationDomainStore } from '@/store/simulationDomain';
 
 export function EmergencyOverlay() {
-  const { criticalCount } = useAlertStore();
+  const alerts = useSimulationDomainStore((state) => state.alerts);
+  const criticalCount = alerts.filter((alert) => alert.severity === 'critical' && alert.status !== 'resolved').length;
   const [showSiren, setShowSiren] = useState(false);
   const [muted, setMuted] = useState(false);
 
