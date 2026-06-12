@@ -17,6 +17,7 @@ from app.api import (
     reports_router,
     analytics_router,
     websocket_router,
+    helmet_router,
 )
 from app.utils.logging import setup_logging
 import logging
@@ -88,6 +89,7 @@ app.include_router(alerts_router, prefix=settings.api_prefix)
 app.include_router(reports_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
 app.include_router(websocket_router)
+app.include_router(helmet_router, prefix=settings.api_prefix)
 
 
 @app.get("/")

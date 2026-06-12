@@ -11,7 +11,25 @@ from app.schemas.telemetry import SensorResponse, TelemetryReadingResponse, Live
 
 from pydantic import BaseModel
 
+class TelemetryOverrideRequest(BaseModel):
+    temperature: float
+    gasLevel: float
+    machineFault: bool
+    scenario: str = "Manual Override"
+
 router = APIRouter(prefix="/sensors", tags=["telemetry"])
+
+@router.post("/override")
+async def override_telemetry(data: TelemetryOverrideRequest):
+    """Override live sensor data (Tinkercad Sync Layer)."""
+    from app.sensor_provider import sensor_provider
+    sensor_provider.set_override(
+        temperature=data.temperature,
+        gas_level=data.gasLevel,
+        machine_fault=data.machineFault,
+        scenario=data.scenario
+    )
+    return {"status": "success", "message": f"Overridden with scenario: {data.scenario}"}
 
 
 @router.get("/live", response_model=List[LiveTelemetryResponse])

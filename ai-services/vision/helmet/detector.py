@@ -46,28 +46,42 @@ class HelmetDetector:
 
     def analyze(self, image: np.ndarray) -> HelmetDetectionResult:
         detections = self.model.predict(image)
-        persons = [d for d in detections if d.label.lower() in PERSON_LABELS]
-        helmets = [d for d in detections if d.label.lower() in HELMET_LABELS]
-
-        if helmets:
-            violation = len(persons) > len(helmets) if persons else False
+        
+        # Check if custom helmet model is active
+        is_custom = "helmet_yolov8.pt" in self.model_path.lower()
+        
+        if is_custom:
+            hardhats = [d for d in detections if d.label.lower() == "hardhat"]
+            no_hardhats = [d for d in detections if d.label.lower() == "no-hardhat"]
+            
+            persons_count = len(hardhats) + len(no_hardhats)
+            helmets_count = len(hardhats)
+            violation = len(no_hardhats) > 0
         else:
-            violation = len(persons) > 0
+            persons = [d for d in detections if d.label.lower() in PERSON_LABELS]
+            helmets = [d for d in detections if d.label.lower() in HELMET_LABELS]
+            persons_count = len(persons)
+            helmets_count = len(helmets)
+            if helmets:
+                violation = persons_count > helmets_count if persons_count else False
+            else:
+                violation = persons_count > 0
 
         alert = "HELMET_VIOLATION" if violation else "COMPLIANT"
         return HelmetDetectionResult(
             detections=detections,
-            persons_detected=len(persons),
-            helmets_detected=len(helmets),
+            persons_detected=persons_count,
+            helmets_detected=helmets_count,
             violation=violation,
             alert=alert,
         )
 
     def status(self) -> dict[str, Any]:
+        labels = ["Hardhat", "NO-Hardhat"] if "helmet_yolov8.pt" in self.model_path.lower() else sorted(HELMET_LABELS)
         return {
             "service": "helmet_detection",
             "ready": True,
             "model_path": self.model_path,
             "model_loaded": self.model.loaded,
-            "labels": sorted(HELMET_LABELS),
+            "labels": labels,
         }
