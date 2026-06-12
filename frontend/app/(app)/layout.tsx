@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { AlertBanner } from '@/components/alerts/AlertBanner';
 import { WebSocketProvider } from '@/components/providers/WebSocketProvider';
+import { SimulationEngineProvider } from '@/components/providers/SimulationEngineProvider';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -29,9 +30,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto bg-[#020408]">
           <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,rgba(0,102,255,0.03)_0%,transparent_60%)]" />
           <div className="relative">
-            <WebSocketProvider>
-              {children}
-            </WebSocketProvider>
+            <SimulationEngineProvider>
+              <WebSocketProvider>
+                {children}
+              </WebSocketProvider>
+            </SimulationEngineProvider>
           </div>
         </main>
       </div>

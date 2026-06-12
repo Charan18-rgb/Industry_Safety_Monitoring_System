@@ -29,7 +29,7 @@ export type Permission =
 // ─── Incident Types ────────────────────────────────────────────────────────
 
 export type IncidentSeverity = 'emergency' | 'critical' | 'warning' | 'info';
-export type IncidentStatus = 'open' | 'acknowledged' | 'investigating' | 'resolved' | 'closed';
+export type IncidentStatus = 'open' | 'investigating' | 'resolved' | 'closed' | 'acknowledged';
 export type IncidentCategory =
   | 'gas_leak'
   | 'overheating'
@@ -56,6 +56,8 @@ export interface Incident {
   resolvedAt?: string;
   tags: string[];
   notes?: string;
+  originatingAlertId?: string;
+  auditHistory?: LifecycleAuditEntry<IncidentStatus>[];
 }
 
 // ─── Telemetry Types ────────────────────────────────────────────────────────
@@ -92,7 +94,25 @@ export interface TelemetryHistory {
 // ─── Alert Types ────────────────────────────────────────────────────────────
 
 export type AlertSeverity = 'info' | 'warning' | 'critical' | 'emergency';
-export type AlertStatus = 'active' | 'acknowledged' | 'resolved';
+export type AlertStatus = 'active' | 'acknowledged' | 'escalated' | 'resolved';
+
+export type OperationalRole =
+  | 'Safety Officer'
+  | 'Shift Supervisor'
+  | 'Maintenance Engineer'
+  | 'Control Room Operator'
+  | 'Operations Manager'
+  | 'Maintenance Team'
+  | 'Plant Supervisor'
+  | 'System Administrator';
+
+export interface LifecycleAuditEntry<TStatus extends string> {
+  id: string;
+  status: TStatus;
+  timestamp: string;
+  actorRole: OperationalRole;
+  notes: string;
+}
 
 export interface Alert {
   id: string;
@@ -106,6 +126,7 @@ export interface Alert {
   acknowledgedBy?: string;
   acknowledgedAt?: string;
   incidentId?: string;
+  auditHistory?: LifecycleAuditEntry<AlertStatus>[];
 }
 
 // ─── Equipment Types ────────────────────────────────────────────────────────
@@ -192,7 +213,15 @@ export interface Report {
 
 // ─── Activity Log Types ──────────────────────────────────────────────────────
 
-export type ActivityCategory = 'simulation' | 'alert' | 'incident' | 'email' | 'whatsapp' | 'report';
+export type ActivityCategory =
+  | 'simulation'
+  | 'alert'
+  | 'incident'
+  | 'notification'
+  | 'report'
+  | 'camera'
+  | 'email'
+  | 'whatsapp';
 
 export interface ActivityLog {
   id: string;
@@ -230,13 +259,21 @@ export interface SystemConfig {
 
 // ─── Notification Types ─────────────────────────────────────────────────────
 
-export type DeliveryStatus = 'success' | 'failed' | 'pending' | 'disabled';
+export type DeliveryStatus = 'delivered' | 'pending' | 'failed' | 'success' | 'disabled';
+export type NotificationChannel = 'Email Simulation' | 'Message Simulation' | 'In-App';
 
 export interface NotificationLog {
   id: string;
+  alertId?: string;
   alertType: string;
   severity: string;
-  emailStatus: DeliveryStatus;
-  whatsappStatus: DeliveryStatus;
+  channel?: NotificationChannel;
+  status?: DeliveryStatus;
+  recipientRole?: OperationalRole;
+  message?: string;
+  /** @deprecated Legacy compatibility until notification pages finish migrating. */
+  emailStatus?: DeliveryStatus;
+  /** @deprecated Legacy compatibility until notification pages finish migrating. */
+  whatsappStatus?: DeliveryStatus;
   timestamp: string;
 }
