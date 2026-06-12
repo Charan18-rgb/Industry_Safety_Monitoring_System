@@ -15,7 +15,6 @@ import type {
 } from '@/types';
 import {
   useSimulationDomainStore,
-  type SimulationScenario,
 } from '@/store/simulationDomain';
 
 interface AuthState {
@@ -222,15 +221,6 @@ export const useIncidentStore = Object.assign(
   },
 );
 
-interface SimulationView {
-  activeScenario: SimulationScenario | null;
-  simulateGasLeak: () => void;
-  simulateHighTemperature: () => void;
-  simulateMachineFault: () => void;
-  simulatePPEViolation: () => void;
-  resetSystem: () => void;
-}
-
 const simulationActions = {
   simulateGasLeak: () => useSimulationDomainStore.getState().startScenario('gas_leak'),
   simulateHighTemperature: () => useSimulationDomainStore.getState().startScenario('high_temperature'),
@@ -282,12 +272,6 @@ export const useNotificationStore = Object.assign(
   () => notificationView(useSimulationDomainStore((state) => state.notifications)),
   { getState: () => notificationView(useSimulationDomainStore.getState().notifications) },
 );
-
-interface ActivityView {
-  activities: ActivityLog[];
-  addActivity: (entry: Omit<ActivityLog, 'id' | 'timestamp'>) => void;
-  clearActivities: () => void;
-}
 
 const activityActions = {
   addActivity: (entry: Omit<ActivityLog, 'id' | 'timestamp'>) => useSimulationDomainStore.setState((state) => ({

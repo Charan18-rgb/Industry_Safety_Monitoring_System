@@ -1,79 +1,75 @@
-# AEGIS-AI Master Platform Architecture
+# AEGIS-AI Architecture
 
 ## Overview
-AEGIS-AI (Autonomous Enterprise Grade Industrial Safety Intelligence System) is a distributed multi-AI engineering pipeline designed for enterprise industrial safety. This repository (`AEGIS-ANTI-GRAVITY-MASTER`) contains the **MASTER PRODUCT SHELL** and **CORE APPLICATION FRAMEWORK**.
 
-This system is modular, API-first, and designed to orchestrate services built by other specialized AI agents (e.g., CV models, predictive ML models).
+AEGIS-AI is an industrial safety monitoring platform for academic demonstration. The application presents simulated plant telemetry, alert handling, incident tracking, camera monitoring, safety analytics, and local notification records in one coherent workflow.
 
-## Architectural Principles
-1. **API-First Microservices:** Frontend connects to the backend shell via REST/WebSockets. The backend shell acts as an API gateway for future external microservices.
-2. **Pluggable AI Modules:** Computer vision, predictive intelligence, and telemetry inference are kept as external services to prevent bloating the core shell.
-3. **Real-time First:** Relies on WebSockets for real-time telemetry and immediate alert propagation.
-4. **State Management:** Utilizes `zustand` for predictable, fast client-side state across telemetry, alerts, and incident tracking.
-5. **Component-Driven UI:** Built using standard enterprise design tokens, `Tailwind CSS`, and `framer-motion` for a fluid command center UX.
+The system is intentionally scoped as a simulation environment. It does not imply live plant synchronization, paid notification delivery, CAD integration, GIS integration, or production industrial control.
 
-## Tech Stack
-### Frontend
-- **Framework:** Next.js (App Router) + React
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS + Vanilla CSS Variables (AEGIS cyber-industrial theme)
-- **Animation:** Framer Motion
-- **Charting:** Recharts
-- **State Management:** Zustand, TanStack React Query
-- **Data Fetching:** Axios
+## Core Flow
 
-### Backend Shell
-- **Framework:** FastAPI (Python 3.11+)
-- **Transport:** HTTP REST + WebSockets
-- **Database:** SQLite (Demo mode, SQLAlchemy/Alembic ready for PostgreSQL migration)
+1. The frontend runs a deterministic simulation engine once per second.
+2. `SimulationDomainStore` owns telemetry, rolling history, alerts, incidents, notifications, risk metrics, camera state, scenarios, and activity history.
+3. Scenario actions create controlled telemetry changes, lifecycle records, local notifications, and linked incidents.
+4. Pages consume centralized state through selectors or compatibility adapters.
+5. The FastAPI backend remains available for REST/WebSocket integrations, AI helmet analysis, and report generation.
 
-## Directory Structure
-```
-AEGIS-ANTI-GRAVITY-MASTER/
-├── frontend/                 # Next.js Application
-│   ├── app/                  # Next.js App Router (Pages & Layouts)
-│   ├── components/           # Reusable UI Components
-│   ├── hooks/                # Custom React Hooks (e.g., useTelemetrySocket)
-│   ├── lib/                  # Utilities, API client, Mock Data
-│   ├── store/                # Zustand global state
-│   └── types/                # TypeScript Interfaces
-├── backend-shell/            # FastAPI Backend Gateway
-│   └── main.py               # Application entrypoint & WebSocket manager
-├── docs/                     # Architectural Documentation
-├── shared/                   # Shared schema/contracts across microservices
-└── (others)                  # API services, configs, utilities
-```
+## Frontend
 
-## Module Definitions
+- Next.js App Router and React
+- TypeScript
+- Tailwind CSS and the existing AEGIS visual theme
+- Framer Motion
+- Recharts
+- Zustand
+- Axios
 
-### 1. Authentication & RBAC
-Roles supported: `admin`, `safety_officer`, `plant_manager`, `operator`. Controls access to specific dashboard panels and incident mutation capabilities.
+Primary pages:
 
-### 2. Main Command Center
-Aggregates live telemetry, active incidents, and compliance metrics into a single unified dashboard using Recharts for visualization and Framer Motion for entrance animations.
+- Dashboard
+- Sensor Monitoring
+- Incident Tracking
+- Alert Management
+- Safety Analytics
+- Simulated Plant Layout
+- Camera Monitoring
+- Notifications
+- Settings
 
-### 3. Incident Management
-A robust tracking system for localized hazards. Supports creation, acknowledgment, investigation, and resolution states. Includes a detail-slideout panel.
+## Backend
 
-### 4. Telemetry Monitoring
-High-frequency sensor data visualization. Designed to connect via WebSockets to `backend-shell` to render sparklines and live gauges.
+- FastAPI
+- SQLite with SQLAlchemy
+- REST APIs for telemetry, simulation, incidents, alerts, analytics, reports, and helmet analysis
+- WebSocket routes for live telemetry-style updates
+- Report generation support retained for academic documentation output
 
-### 5. Digital Twin Operations View
-A spatial 2D interactive map of the industrial zones, overlaying active sensor readings, risk scores, and worker counts.
+## State Ownership
 
-### 6. Alert Orchestration
-A tiered alerting system (`info`, `warning`, `critical`, `emergency`). Includes a global alert banner and an emergency takeover modal for critical shutdowns.
+`frontend/store/simulationDomain.ts` is the frontend source of truth. Legacy store exports in `frontend/store/index.ts` are compatibility adapters only, so older components can continue to work while still reading and writing centralized domain state.
 
-### 7. Settings & Configuration
-Management of global thresholds, notification channels, and system retention rules.
+Owned domain data:
 
-### 8. Reporting Engine
-Frontend scaffolding for requesting and downloading compliance, maintenance, and incident summaries.
+- Telemetry and telemetry history
+- Alerts with ACTIVE, ACKNOWLEDGED, ESCALATED, RESOLVED lifecycle
+- Incidents with OPEN, INVESTIGATING, RESOLVED, CLOSED lifecycle
+- Local notification simulation records
+- Risk metrics
+- Camera state and capture history
+- Scenario state
+- Activity history
 
-## Integration Contract (API Hooks)
-The backend shell exposes the following REST endpoints to bridge with upcoming external agents:
-- `GET /api/helmet/status`, `POST /api/helmet/analyze` (AEGIS-CODEX-AI)
-- `GET /api/ppe/status` (AEGIS-CODEX-AI)
-- `GET /api/predictive/risk`, `GET /api/predictive/failure` (AEGIS-WINDSURF-RAPID)
+## Simulation Scenarios
 
-*(Full API surface documented in `/api/docs` via Swagger UI when backend is running).*
+Supported scenarios:
+
+- Gas Leak
+- High Temperature
+- Machine Fault
+- PPE Violation
+
+Normal telemetry stays inside safe ranges. Scenario telemetry creates deliberate, bounded excursions and avoids repeated alert storms.
+
+## Notification Scope
+
+Notifications are generated by the local Notification Simulation Engine. Records may show Email Simulation, Message Simulation, or In-App channels. No real SMS, email, or external delivery service is invoked by the frontend.

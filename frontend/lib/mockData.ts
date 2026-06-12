@@ -1,9 +1,9 @@
-// AEGIS-AI Mock Data — Realistic Industrial Telemetry
+﻿// AEGIS-AI Mock Data - Realistic Industrial Telemetry
 import type {
   Incident, SensorReading, Alert, Equipment, Zone, RiskScore, TelemetryHistory
 } from '@/types';
 
-// ─── Sensor Readings ─────────────────────────────────────────────────────────
+// --- Sensor Readings ---------------------------------------------------------
 
 export const mockSensorReadings: SensorReading[] = [
   {
@@ -112,7 +112,7 @@ export const mockSensorReadings: SensorReading[] = [
   },
 ];
 
-// ─── Risk Score ──────────────────────────────────────────────────────────────
+// --- Risk Score --------------------------------------------------------------
 
 export const mockRiskScore: RiskScore = {
   overall: 64,
@@ -124,7 +124,7 @@ export const mockRiskScore: RiskScore = {
   updatedAt: new Date().toISOString(),
 };
 
-// ─── Incidents ───────────────────────────────────────────────────────────────
+// --- Incidents ---------------------------------------------------------------
 
 export const mockIncidents: Incident[] = [
   {
@@ -136,7 +136,7 @@ export const mockIncidents: Incident[] = [
     status: 'investigating',
     zone: 'Zone-A',
     equipment: 'Gas Line G-12',
-    assignedTo: 'Sarah Chen',
+    assignedTo: 'Safety Officer',
     reportedBy: 'Automated Sensor',
     createdAt: new Date(Date.now() - 25 * 60000).toISOString(),
     updatedAt: new Date(Date.now() - 10 * 60000).toISOString(),
@@ -152,7 +152,7 @@ export const mockIncidents: Incident[] = [
     status: 'acknowledged',
     zone: 'Zone-D',
     equipment: 'Compressor Unit CU-7',
-    assignedTo: 'Marcus Williams',
+    assignedTo: 'Maintenance Team',
     reportedBy: 'Predictive AI System',
     createdAt: new Date(Date.now() - 45 * 60000).toISOString(),
     updatedAt: new Date(Date.now() - 20 * 60000).toISOString(),
@@ -160,7 +160,7 @@ export const mockIncidents: Incident[] = [
   },
   {
     id: 'INC-2024-0839',
-    title: 'PPE Non-Compliance — Worker W-47',
+    title: 'PPE Non-Compliance - Worker W-47',
     description: 'Worker detected without mandatory safety goggles in chemical processing area. Access has been logged. Supervisor notified.',
     category: 'ppe_violation',
     severity: 'warning',
@@ -173,14 +173,14 @@ export const mockIncidents: Incident[] = [
   },
   {
     id: 'INC-2024-0838',
-    title: 'Overtemperature Alert — Heat Exchanger HX-3',
+    title: 'Overtemperature Alert - Heat Exchanger HX-3',
     description: 'Temperature sensor T1 recorded 78.4°C near Heat Exchanger HX-3, approaching warning threshold.',
     category: 'overheating',
     severity: 'warning',
     status: 'acknowledged',
     zone: 'Zone-A',
     equipment: 'Heat Exchanger HX-3',
-    assignedTo: 'James Okonkwo',
+    assignedTo: 'Plant Supervisor',
     reportedBy: 'Automated Sensor',
     createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 1 * 3600000).toISOString(),
@@ -188,13 +188,13 @@ export const mockIncidents: Incident[] = [
   },
   {
     id: 'INC-2024-0837',
-    title: 'Helmet Violation Detected — Maintenance Bay',
+    title: 'Helmet Violation Detected - Maintenance Bay',
     description: 'AI vision system detected worker without hard hat in active maintenance area during scheduled equipment inspection.',
     category: 'helmet_violation',
     severity: 'warning',
     status: 'resolved',
     zone: 'Zone-D',
-    assignedTo: 'Lisa Park',
+    assignedTo: 'Operations Manager',
     reportedBy: 'Helmet AI Vision System',
     createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 4 * 3600000).toISOString(),
@@ -203,14 +203,14 @@ export const mockIncidents: Incident[] = [
   },
   {
     id: 'INC-2024-0836',
-    title: 'Emergency Shutdown — Reactor Loop B',
+    title: 'Emergency Shutdown - Reactor Loop B',
     description: 'Automated safety system triggered emergency shutdown of Reactor Loop B due to cascading pressure anomalies.',
     category: 'emergency_shutdown',
     severity: 'emergency',
     status: 'closed',
     zone: 'Zone-C',
     equipment: 'Reactor Loop B',
-    assignedTo: 'Dr. Raj Patel',
+    assignedTo: 'System Administrator',
     reportedBy: 'SCADA Safety System',
     createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 22 * 3600000).toISOString(),
@@ -219,7 +219,7 @@ export const mockIncidents: Incident[] = [
   },
 ];
 
-// ─── Alerts ──────────────────────────────────────────────────────────────────
+// --- Alerts ------------------------------------------------------------------
 
 export const mockAlerts: Alert[] = [
   {
@@ -242,7 +242,7 @@ export const mockAlerts: Alert[] = [
     source: 'Vibration Sensor V1',
     zone: 'Zone-D',
     timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-    acknowledgedBy: 'Marcus Williams',
+    acknowledgedBy: 'Maintenance Team',
     acknowledgedAt: new Date(Date.now() - 20 * 60000).toISOString(),
     incidentId: 'INC-2024-0840',
   },
@@ -280,7 +280,7 @@ export const mockAlerts: Alert[] = [
   },
 ];
 
-// ─── Equipment ───────────────────────────────────────────────────────────────
+// --- Equipment ---------------------------------------------------------------
 
 export const mockEquipment: Equipment[] = [
   {
@@ -350,16 +350,16 @@ export const mockEquipment: Equipment[] = [
   },
 ];
 
-// ─── Industrial Zones ────────────────────────────────────────────────────────
+// --- Industrial Zones --------------------------------------------------------
 
 export const mockZones: Zone[] = [
-  { id: 'Zone-A', name: 'Zone Alpha — Processing', type: 'Chemical Processing', status: 'danger', riskScore: 74, workerCount: 12, activeAlerts: 3, sensors: 8, x: 10, y: 10, width: 35, height: 40 },
-  { id: 'Zone-B', name: 'Zone Beta — Utility', type: 'Utility Systems', status: 'caution', riskScore: 48, workerCount: 6, activeAlerts: 1, sensors: 5, x: 55, y: 10, width: 35, height: 40 },
-  { id: 'Zone-C', name: 'Zone Gamma — Reactor', type: 'Reactor Operations', status: 'caution', riskScore: 52, workerCount: 4, activeAlerts: 1, sensors: 6, x: 10, y: 58, width: 35, height: 32 },
-  { id: 'Zone-D', name: 'Zone Delta — Mechanical', type: 'Mechanical Systems', status: 'danger', riskScore: 82, workerCount: 8, activeAlerts: 2, sensors: 7, x: 55, y: 58, width: 35, height: 32 },
+  { id: 'Zone-A', name: 'Zone Alpha - Processing', type: 'Chemical Processing', status: 'danger', riskScore: 74, workerCount: 12, activeAlerts: 3, sensors: 8, x: 10, y: 10, width: 35, height: 40 },
+  { id: 'Zone-B', name: 'Zone Beta - Utility', type: 'Utility Systems', status: 'caution', riskScore: 48, workerCount: 6, activeAlerts: 1, sensors: 5, x: 55, y: 10, width: 35, height: 40 },
+  { id: 'Zone-C', name: 'Zone Gamma - Reactor', type: 'Reactor Operations', status: 'caution', riskScore: 52, workerCount: 4, activeAlerts: 1, sensors: 6, x: 10, y: 58, width: 35, height: 32 },
+  { id: 'Zone-D', name: 'Zone Delta - Mechanical', type: 'Mechanical Systems', status: 'danger', riskScore: 82, workerCount: 8, activeAlerts: 2, sensors: 7, x: 55, y: 58, width: 35, height: 32 },
 ];
 
-// ─── Telemetry History (sparkline data) ─────────────────────────────────────
+// --- Telemetry History (sparkline data) -------------------------------------
 
 export function generateTelemetryHistory(
   baseValue: number,
@@ -384,7 +384,7 @@ export const mockTelemetryHistory: TelemetryHistory[] = [
   { sensorId: 'SEN-VIB-001', readings: generateTelemetryHistory(5, 5, 24) },
 ];
 
-// ─── Activity Feed ───────────────────────────────────────────────────────────
+// --- Activity Feed -----------------------------------------------------------
 
 export interface ActivityItem {
   id: string;
@@ -397,16 +397,16 @@ export interface ActivityItem {
 
 export const mockActivityFeed: ActivityItem[] = [
   { id: '1', type: 'alert', message: 'Gas alert triggered', detail: 'Zone-A sensor SEN-GAS-001 exceeded warning threshold', timestamp: new Date(Date.now() - 3 * 60000).toISOString(), severity: 'critical' },
-  { id: '2', type: 'ai', message: 'AI Risk Assessment Updated', detail: 'Overall risk score increased to 64 — vibration anomaly driver', timestamp: new Date(Date.now() - 8 * 60000).toISOString(), severity: 'warning' },
-  { id: '3', type: 'user', message: 'Incident INC-2024-0840 Acknowledged', detail: 'Marcus Williams acknowledged compressor vibration incident', timestamp: new Date(Date.now() - 25 * 60000).toISOString() },
-  { id: '4', type: 'system', message: 'WebSocket Connection Established', detail: 'Real-time telemetry feed active — all sensors nominal', timestamp: new Date(Date.now() - 40 * 60000).toISOString() },
+  { id: '2', type: 'ai', message: 'AI Risk Assessment Updated', detail: 'Overall risk score increased to 64 - vibration anomaly driver', timestamp: new Date(Date.now() - 8 * 60000).toISOString(), severity: 'warning' },
+  { id: '3', type: 'user', message: 'Incident INC-2024-0840 Acknowledged', detail: 'Maintenance Team acknowledged compressor vibration incident', timestamp: new Date(Date.now() - 25 * 60000).toISOString() },
+  { id: '4', type: 'system', message: 'WebSocket Connection Established', detail: 'Real-time telemetry feed active - all sensors nominal', timestamp: new Date(Date.now() - 40 * 60000).toISOString() },
   { id: '5', type: 'incident', message: 'New Incident Created', detail: 'INC-2024-0841: Elevated gas concentration reported in Zone-A', timestamp: new Date(Date.now() - 25 * 60000).toISOString(), severity: 'critical' },
   { id: '6', type: 'ai', message: 'Predictive Maintenance Alert', detail: 'Compressor CU-7 bearing failure probability: 87% within 72 hours', timestamp: new Date(Date.now() - 1.5 * 3600000).toISOString(), severity: 'warning' },
   { id: '7', type: 'user', message: 'System Calibration Initiated', detail: 'Admin initiated sensor calibration cycle for Zone-B sensors', timestamp: new Date(Date.now() - 3 * 3600000).toISOString() },
   { id: '8', type: 'system', message: 'Daily Report Generated', detail: 'Compliance summary for 2024-01-15 archived to reports store', timestamp: new Date(Date.now() - 6 * 3600000).toISOString() },
 ];
 
-// ─── PPE & Helmet Compliance ─────────────────────────────────────────────────
+// --- PPE & Helmet Compliance -------------------------------------------------
 
 export const mockComplianceData = {
   ppe: { compliant: 34, nonCompliant: 4, total: 38, percentage: 89.5 },
@@ -419,7 +419,7 @@ export const mockComplianceData = {
   ],
 };
 
-// ─── Nominal (Safe) versions for initial clean state ─────────────────────────
+// --- Nominal (Safe) versions for initial clean state -------------------------
 
 export const mockSensorReadingsNominal: SensorReading[] = mockSensorReadings.map(s => ({
   ...s,
@@ -460,4 +460,5 @@ export const mockActivityFeedNominal: ActivityItem[] = [
   { id: '1', type: 'system', message: 'All Systems Operational', detail: 'No active safety alerts or warnings detected across plant zones.', timestamp: new Date().toISOString() },
   { id: '2', type: 'system', message: 'WebSocket Connection Active', detail: 'Real-time telemetry feed monitoring all active sensors.', timestamp: new Date(Date.now() - 5 * 60000).toISOString() }
 ];
+
 

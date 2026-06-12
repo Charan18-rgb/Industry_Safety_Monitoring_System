@@ -77,7 +77,10 @@ export default function CameraMonitoringPage() {
               <div className="py-14 text-center text-[#587996] text-xs">No captures recorded.</div>
             ) : captureHistory.map((captureItem) => (
               <div key={captureItem.id} className="flex gap-3 p-3 rounded-lg border border-white/5 bg-white/[0.02]">
-                {captureItem.imageUrl ? <img src={captureItem.imageUrl} alt="Camera capture" className="w-20 h-14 object-cover rounded" /> : (
+                {captureItem.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={captureItem.imageUrl} alt="Camera capture" className="w-20 h-14 object-cover rounded" />
+                ) : (
                   <div className="w-20 h-14 rounded bg-black/40 flex items-center justify-center"><Camera className="w-4 h-4 text-[#587996]" /></div>
                 )}
                 <div className="min-w-0">
